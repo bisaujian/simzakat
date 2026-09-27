@@ -265,14 +265,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <span>Coba Demo Posko (Simulasi)</span>
               <ChevronRight className="w-4 h-4 text-emerald-700" />
             </button>
-
-            <button
-              onClick={onOpenLogin}
-              className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-            >
-              <LogIn className="w-4 h-4 text-emerald-400" />
-              <span>Masuk Portal</span>
-            </button>
           </div>
 
           {/* Counter Bar (Platform Stats) */}
