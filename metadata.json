@@ -1,0 +1,6 @@
+{
+  "name": "SimZakat - Sistem Digital Amil Zakat & Mustahiq",
+  "description": "Aplikasi digital amil zakat untuk pencatatan cepat muzakki, mustahiq 8 asnaf, zakat fitrah & maal, cetak kuitansi, dan laporan rekapitulasi kas masjid.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
