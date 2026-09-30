@@ -1,0 +1,30 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Eksekusi Deployment ke VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          passphrase: ${{ secrets.VPS_PASSPHRASE }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            cd /var/www/simzakat
+            git fetch origin
+            git reset --hard origin/main
+            npm install
+            npm run build
+            pm2 restart simzakat-app || pm2 start server.ts --name "simzakat-app" --interpreter ./node_modules/.bin/tsx
+            pm2 save
+            echo "Deployment SimZakat via GitHub Actions Selesai!"
