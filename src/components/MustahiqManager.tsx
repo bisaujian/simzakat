@@ -338,13 +338,13 @@ export const MustahiqManager: React.FC<MustahiqManagerProps> = ({
         </div>
       </div>
 
-      {/* 8 Asnaf Quick Filters / Badges + 'Semua' Option */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2">
+      {/* 8 Asnaf Quick Filters / Badges + 'Semua' Option (Scrollable on mobile) */}
+      <div className="flex overflow-x-auto gap-2 pb-1.5 sm:pb-0 sm:grid sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 no-scrollbar">
         {/* Card 0: Semua Asnaf */}
         <button
           type="button"
           onClick={() => setAsnafFilter('all')}
-          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer min-w-[130px] sm:min-w-0 shrink-0 ${
             asnafFilter === 'all'
               ? 'border-emerald-600 bg-emerald-50 ring-2 ring-emerald-500/20 shadow-xs'
               : 'border-slate-200 bg-white hover:border-slate-300'
@@ -381,7 +381,7 @@ export const MustahiqManager: React.FC<MustahiqManagerProps> = ({
                   setSelectedGuidelineAsnaf(key);
                 }
               }}
-              className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+              className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer min-w-[130px] sm:min-w-0 shrink-0 ${
                 isSelected
                   ? 'border-emerald-600 bg-emerald-50 ring-2 ring-emerald-500/20 shadow-xs'
                   : 'border-slate-200 bg-white hover:border-slate-300'

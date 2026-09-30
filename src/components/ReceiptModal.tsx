@@ -99,27 +99,45 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   };
 
   const handleCopyWhatsApp = () => {
-    const isFitrah = transaction.category === 'fitrah';
     let detailText = '';
 
-    if (isFitrah) {
+    if (transaction.category === 'fitrah') {
       const isKombinasi = transaction.fitrahDetail?.unit === 'kombinasi';
       const isBeras = transaction.fitrahDetail?.unit === 'beras';
+      const voluntaryInfaq = transaction.voluntaryInfaqRp || 0;
+      const baseMoney = Math.max(0, transaction.totalMoneyRp - voluntaryInfaq);
+
       if (isKombinasi) {
         detailText = `• Zakat Fitrah (${transaction.fitrahDetail?.payerCount} Jiwa Kombinasi):\n` +
           `  - Beras: ${transaction.fitrahDetail?.ricePayerCount} Jiwa (${formatKg(transaction.totalRiceKg)})\n` +
-          `  - Uang Tunai: ${transaction.fitrahDetail?.moneyPayerCount} Jiwa (${formatRupiah(transaction.totalMoneyRp)})`;
+          `  - Uang Tunai: ${transaction.fitrahDetail?.moneyPayerCount} Jiwa (${formatRupiah(baseMoney)})`;
       } else if (isBeras) {
         detailText = `• Zakat Fitrah: ${transaction.fitrahDetail?.payerCount} Jiwa\n• Bentuk: Beras Konsumsi (${formatKg(transaction.totalRiceKg)})`;
       } else {
-        detailText = `• Zakat Fitrah: ${transaction.fitrahDetail?.payerCount} Jiwa\n• Bentuk: Uang Tunai (${formatRupiah(transaction.totalMoneyRp)})\n• Kategori: ${transaction.fitrahDetail?.skKemenagTierName || 'SK Kemenag'}`;
+        detailText = `• Zakat Fitrah: ${transaction.fitrahDetail?.payerCount} Jiwa\n• Bentuk: Uang Tunai (${formatRupiah(baseMoney)})\n• Kategori: ${transaction.fitrahDetail?.skKemenagTierName || 'SK Kemenag'}`;
       }
 
       if (transaction.fitrahDetail?.familyMembers && transaction.fitrahDetail.familyMembers.length > 0) {
         detailText += `\n• Nama Jiwa: ${transaction.fitrahDetail.familyMembers.join(', ')}`;
       }
-    } else {
-      detailText = `• Zakat Maal: ${formatRupiah(transaction.totalMoneyRp)} (${transaction.notes || 'Harta / Penghasilan'})`;
+    } else if (transaction.category === 'maal') {
+      const voluntaryInfaq = transaction.voluntaryInfaqRp || 0;
+      const baseMoney = Math.max(0, transaction.totalMoneyRp - voluntaryInfaq);
+      detailText = `• Zakat Maal: ${formatRupiah(baseMoney)} (${transaction.notes || 'Harta / Perniagaan'})`;
+    } else if (transaction.category === 'profesi') {
+      const voluntaryInfaq = transaction.voluntaryInfaqRp || 0;
+      const baseMoney = Math.max(0, transaction.totalMoneyRp - voluntaryInfaq);
+      detailText = `• Zakat Profesi / Penghasilan: ${formatRupiah(baseMoney)}`;
+    } else if (transaction.category === 'infaq') {
+      detailText = `• Infaq / Sedekah: ${formatRupiah(transaction.totalMoneyRp)} (${transaction.infaqDetail?.allocation?.replace('_', ' ') || 'Umum'})`;
+    } else if (transaction.category === 'fidyah') {
+      const voluntaryInfaq = transaction.voluntaryInfaqRp || 0;
+      const baseMoney = Math.max(0, transaction.totalMoneyRp - voluntaryInfaq);
+      detailText = `• Fidyah Puasa (${transaction.fidyahDetail?.daysCount || '-'} Hari): ${formatRupiah(baseMoney)}`;
+    }
+
+    if (transaction.voluntaryInfaqRp && transaction.voluntaryInfaqRp > 0) {
+      detailText += `\n• Infaq / Sedekah Sukarela: ${formatRupiah(transaction.voluntaryInfaqRp)} (${transaction.voluntaryInfaqAllocation?.replace('_', ' ') || 'Operasional/Umum'})`;
     }
 
     const text = `*BUKTI PEMBAYARAN ZAKAT RESMI*
@@ -133,6 +151,7 @@ _${config.address} • Telp: ${config.phone}_
 
 *RINCIAN:*
 ${detailText}
+*Total Diterima:* ${transaction.totalRiceKg > 0 ? `${formatKg(transaction.totalRiceKg)} Beras ` : ''}${transaction.totalMoneyRp > 0 ? formatRupiah(transaction.totalMoneyRp) : ''}
 *Metode Bayar:* ${transaction.paymentMethod === 'tunai' ? 'Tunai (Cash)' : 'Transfer / QRIS'}
 *Amil Penerima:* ${transaction.amilName}
 ---------------------------------------------
@@ -149,38 +168,72 @@ Jazakumullahu khairan katsiran. Semoga zakat yang ditunaikan membawa berkah dan 
 
   // Helper component: Ringkasan detail zakat untuk format slip ringkas
   const renderZakatItemRow = () => {
-    if (transaction.category === 'fitrah') {
-      const isKombinasi = transaction.fitrahDetail?.unit === 'kombinasi';
-      const isBeras = transaction.fitrahDetail?.unit === 'beras';
-      return (
-        <div className="text-xs space-y-1">
-          <div className="flex justify-between items-start font-semibold text-slate-800">
-            <span>
-              Zakat Fitrah ({transaction.fitrahDetail?.payerCount} Jiwa)
-              {isKombinasi && <span className="text-[10px] text-teal-700 ml-1.5 font-bold">[Beras & Uang]</span>}
-              {isBeras && <span className="text-[10px] text-amber-700 ml-1.5 font-bold">[Beras]</span>}
-              {!isBeras && !isKombinasi && <span className="text-[10px] text-emerald-700 ml-1.5 font-bold">[Uang Tunai]</span>}
-            </span>
-            <div className="text-right">
-              {transaction.totalRiceKg > 0 && <span className="text-amber-800 font-bold block">{formatKg(transaction.totalRiceKg)}</span>}
-              {transaction.totalMoneyRp > 0 && <span className="text-emerald-800 font-bold block">{formatRupiah(transaction.totalMoneyRp)}</span>}
-            </div>
-          </div>
-          {transaction.fitrahDetail?.familyMembers && transaction.fitrahDetail.familyMembers.length > 0 && (
-            <div className="text-[10px] text-slate-500 italic truncate max-w-xl">
-              Jiwa: {transaction.fitrahDetail.familyMembers.join(', ')}
-            </div>
-          )}
-        </div>
-      );
-    }
+    const voluntaryInfaq = transaction.voluntaryInfaqRp || 0;
+    const baseMoney = Math.max(0, (transaction.totalMoneyRp || 0) - voluntaryInfaq);
+
     return (
-      <div className="text-xs flex justify-between items-start font-semibold text-slate-800">
-        <div>
-          <span>Zakat Maal / Harta</span>
-          {transaction.notes && <span className="text-[10px] text-slate-500 block font-normal">{transaction.notes}</span>}
-        </div>
-        <span className="text-emerald-800 font-bold text-sm">{formatRupiah(transaction.totalMoneyRp)}</span>
+      <div className="space-y-1.5 text-xs">
+        {transaction.category === 'fitrah' ? (
+          <div className="space-y-1">
+            <div className="flex justify-between items-start font-semibold text-slate-800">
+              <span>
+                Zakat Fitrah ({transaction.fitrahDetail?.payerCount} Jiwa)
+                {transaction.fitrahDetail?.unit === 'kombinasi' && <span className="text-[10px] text-teal-700 ml-1.5 font-bold">[Beras & Uang]</span>}
+                {transaction.fitrahDetail?.unit === 'beras' && <span className="text-[10px] text-amber-700 ml-1.5 font-bold">[Beras]</span>}
+                {transaction.fitrahDetail?.unit === 'uang' && <span className="text-[10px] text-emerald-700 ml-1.5 font-bold">[Uang Tunai]</span>}
+              </span>
+              <div className="text-right">
+                {transaction.totalRiceKg > 0 && <span className="text-amber-800 font-bold block">{formatKg(transaction.totalRiceKg)}</span>}
+                {baseMoney > 0 && <span className="text-emerald-800 font-bold block">{formatRupiah(baseMoney)}</span>}
+              </div>
+            </div>
+            {transaction.fitrahDetail?.familyMembers && transaction.fitrahDetail.familyMembers.length > 0 && (
+              <div className="text-[10px] text-slate-500 italic truncate max-w-xl">
+                Jiwa: {transaction.fitrahDetail.familyMembers.join(', ')}
+              </div>
+            )}
+          </div>
+        ) : transaction.category === 'maal' ? (
+          <div className="flex justify-between items-start font-semibold text-slate-800">
+            <div>
+              <span>Zakat Maal / Harta</span>
+              {transaction.notes && <span className="text-[10px] text-slate-500 block font-normal">{transaction.notes}</span>}
+            </div>
+            <span className="text-emerald-800 font-bold">{formatRupiah(baseMoney)}</span>
+          </div>
+        ) : transaction.category === 'profesi' ? (
+          <div className="flex justify-between items-start font-semibold text-slate-800">
+            <span>Zakat Profesi / Penghasilan</span>
+            <span className="text-emerald-800 font-bold">{formatRupiah(baseMoney)}</span>
+          </div>
+        ) : transaction.category === 'fidyah' ? (
+          <div className="flex justify-between items-start font-semibold text-slate-800">
+            <span>Fidyah Puasa ({transaction.fidyahDetail?.daysCount || '-'} Hari)</span>
+            <span className="text-emerald-800 font-bold">{formatRupiah(baseMoney)}</span>
+          </div>
+        ) : (
+          <div className="flex justify-between items-start font-semibold text-slate-800">
+            <div>
+              <span>Infaq / Sedekah</span>
+              <span className="text-[10px] text-slate-500 block font-normal capitalize">
+                Alokasi: {transaction.infaqDetail?.allocation?.replace('_', ' ') || 'Umum'}
+              </span>
+            </div>
+            <span className="text-emerald-800 font-bold">{formatRupiah(transaction.totalMoneyRp)}</span>
+          </div>
+        )}
+
+        {voluntaryInfaq > 0 && (
+          <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-200 text-rose-800 font-semibold">
+            <span className="flex items-center gap-1">
+              <span>+ Infaq / Sedekah Sukarela:</span>
+              <span className="text-[10px] text-slate-500 font-normal">
+                ({transaction.voluntaryInfaqAllocation?.replace('_', ' ') || 'Operasional/Umum'})
+              </span>
+            </span>
+            <span className="font-bold">{formatRupiah(voluntaryInfaq)}</span>
+          </div>
+        )}
       </div>
     );
   };
@@ -317,19 +370,47 @@ Jazakumullahu khairan katsiran. Semoga zakat yang ditunaikan membawa berkah dan 
                 <span className="font-bold">{formatKg(transaction.totalRiceKg)}</span>
               </div>
             )}
-            {transaction.totalMoneyRp > 0 && (
+            {(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0)) > 0 && (
               <div className="flex justify-between text-[10px]">
-                <span>UANG TUNAI:</span>
-                <span className="font-bold">{formatRupiah(transaction.totalMoneyRp)}</span>
+                <span>UANG FITRAH:</span>
+                <span className="font-bold">{formatRupiah(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0))}</span>
               </div>
             )}
           </>
-        ) : (
+        ) : transaction.category === 'maal' ? (
           <div className="flex justify-between font-bold">
             <span>ZAKAT MAAL:</span>
+            <span>{formatRupiah(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0))}</span>
+          </div>
+        ) : transaction.category === 'profesi' ? (
+          <div className="flex justify-between font-bold">
+            <span>ZAKAT PROFESI:</span>
+            <span>{formatRupiah(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0))}</span>
+          </div>
+        ) : transaction.category === 'fidyah' ? (
+          <div className="flex justify-between font-bold">
+            <span>FIDYAH ({transaction.fidyahDetail?.daysCount || '-'} HARI):</span>
+            <span>{formatRupiah(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0))}</span>
+          </div>
+        ) : (
+          <div className="flex justify-between font-bold">
+            <span>INFAQ / SEDEKAH:</span>
             <span>{formatRupiah(transaction.totalMoneyRp)}</span>
           </div>
         )}
+
+        {transaction.voluntaryInfaqRp && transaction.voluntaryInfaqRp > 0 && (
+          <div className="flex justify-between text-[10px] text-slate-800 font-semibold pt-0.5 border-t border-dashed border-slate-300">
+            <span>+ INFAQ SUKARELA:</span>
+            <span>{formatRupiah(transaction.voluntaryInfaqRp)}</span>
+          </div>
+        )}
+
+        <div className="flex justify-between font-black text-xs pt-1 border-t border-dashed border-slate-400">
+          <span>TOTAL DITERIMA:</span>
+          <span>{transaction.totalMoneyRp > 0 ? formatRupiah(transaction.totalMoneyRp) : `${formatKg(transaction.totalRiceKg)} Beras`}</span>
+        </div>
+
         <div className="flex justify-between text-[10px] text-slate-600 pt-0.5">
           <span>METODE:</span>
           <span className="uppercase">{transaction.paymentMethod}</span>
@@ -444,6 +525,18 @@ Jazakumullahu khairan katsiran. Semoga zakat yang ditunaikan membawa berkah dan 
                   </span>
                 ))}
               </div>
+            </div>
+          )}
+
+          {transaction.voluntaryInfaqRp && transaction.voluntaryInfaqRp > 0 && (
+            <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs">
+              <span className="text-rose-800 font-semibold flex items-center gap-1">
+                <span>+ Infaq / Sedekah Suka Rela:</span>
+                <span className="text-[10px] text-slate-500 font-normal">
+                  ({transaction.voluntaryInfaqAllocation?.replace('_', ' ') || 'Operasional/Umum'})
+                </span>
+              </span>
+              <span className="font-bold text-rose-900 text-sm">{formatRupiah(transaction.voluntaryInfaqRp)}</span>
             </div>
           )}
         </div>

@@ -96,6 +96,8 @@ export interface MuzakkiTransaction {
   profesiDetail?: ProfesiDetail;
   infaqDetail?: InfaqDetail;
   fidyahDetail?: FidyahDetail;
+  voluntaryInfaqRp?: number;
+  voluntaryInfaqAllocation?: 'operasional_masjid' | 'pembangunan' | 'sosial_yatim' | 'umum';
   paymentMethod: 'tunai' | 'transfer_qris';
   amilName: string;
   notes?: string;

@@ -291,58 +291,120 @@ export const DistributionManager: React.FC<DistributionManagerProps> = ({
                 Belum ada data riwayat penyaluran zakat.
               </div>
             ) : (
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase">
-                  <tr>
-                    <th className="py-3 px-3">Waktu</th>
-                    <th className="py-3 px-3">Nama Mustahiq</th>
-                    <th className="py-3 px-3">Asnaf / RT</th>
-                    <th className="py-3 px-3 text-right">Beras</th>
-                    <th className="py-3 px-3 text-right">Uang</th>
-                    <th className="py-3 px-3">Amil Penyalur</th>
-                    <th className="py-3 px-3 text-center">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
+              <>
+                {/* Desktop Table View (>= md) */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase">
+                      <tr>
+                        <th className="py-3 px-3">Waktu</th>
+                        <th className="py-3 px-3">Nama Mustahiq</th>
+                        <th className="py-3 px-3">Asnaf / RT</th>
+                        <th className="py-3 px-3 text-right">Beras</th>
+                        <th className="py-3 px-3 text-right">Uang</th>
+                        <th className="py-3 px-3">Amil Penyalur</th>
+                        <th className="py-3 px-3 text-center">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {distributions.map((dist) => (
+                        <tr key={dist.id} className="hover:bg-slate-50">
+                          <td className="py-3 px-3 whitespace-nowrap text-slate-500">
+                            {dist.dateStr}
+                          </td>
+                          <td className="py-3 px-3 font-bold text-slate-900">
+                            {dist.mustahiqName}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="font-semibold uppercase text-emerald-800 text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded">
+                              {dist.asnaf}
+                            </span>
+                            <div className="text-[11px] text-slate-400 mt-0.5">{dist.rtRw}</div>
+                          </td>
+                          <td className="py-3 px-3 text-right font-bold text-amber-800 whitespace-nowrap">
+                            {dist.riceKg > 0 ? formatKg(dist.riceKg) : '-'}
+                          </td>
+                          <td className="py-3 px-3 text-right font-bold text-emerald-800 whitespace-nowrap">
+                            {dist.moneyRp > 0 ? formatRupiah(dist.moneyRp) : '-'}
+                          </td>
+                          <td className="py-3 px-3 text-slate-600 text-[11px]">
+                            {dist.distributorAmil}
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              onClick={() => {
+                                if (confirm(`Hapus catatan distribusi untuk ${dist.mustahiqName}?`)) {
+                                  onDeleteDistribution(dist.id);
+                                }
+                              }}
+                              className="p-1 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded transition cursor-pointer"
+                              title="Hapus Catatan Penyaluran"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Cards List (< md) */}
+                <div className="md:hidden divide-y divide-slate-100">
                   {distributions.map((dist) => (
-                    <tr key={dist.id} className="hover:bg-slate-50">
-                      <td className="py-3 px-3 whitespace-nowrap text-slate-500">
-                        {dist.dateStr}
-                      </td>
-                      <td className="py-3 px-3 font-bold text-slate-900">
-                        {dist.mustahiqName}
-                      </td>
-                      <td className="py-3 px-3">
-                        <span className="font-semibold uppercase text-emerald-800 text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded">
-                          {dist.asnaf}
-                        </span>
-                        <div className="text-[11px] text-slate-400 mt-0.5">{dist.rtRw}</div>
-                      </td>
-                      <td className="py-3 px-3 text-right font-bold text-amber-800 whitespace-nowrap">
-                        {dist.riceKg > 0 ? formatKg(dist.riceKg) : '-'}
-                      </td>
-                      <td className="py-3 px-3 text-right font-bold text-emerald-800 whitespace-nowrap">
-                        {dist.moneyRp > 0 ? formatRupiah(dist.moneyRp) : '-'}
-                      </td>
-                      <td className="py-3 px-3 text-slate-600 text-[11px]">
-                        {dist.distributorAmil}
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <button
-                          onClick={() => {
-                            if (confirm(`Hapus catatan distribusi untuk ${dist.mustahiqName}?`)) {
-                              onDeleteDistribution(dist.id);
-                            }
-                          }}
-                          className="p-1 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded transition"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
+                    <div key={dist.id} className="p-3.5 space-y-2 hover:bg-slate-50/70 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-semibold uppercase text-emerald-800 text-[10px] bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                              {dist.asnaf}
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-medium">{dist.rtRw}</span>
+                          </div>
+                          <h4 className="font-bold text-slate-900 text-sm mt-0.5">{dist.mustahiqName}</h4>
+                        </div>
+                        <span className="text-[10px] text-slate-400 shrink-0">{dist.dateStr}</span>
+                      </div>
+
+                      {dist.packageDescription && (
+                        <p className="text-xs text-slate-600 italic bg-slate-50 px-2 py-1 rounded">
+                          {dist.packageDescription}
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                        <div className="flex items-center gap-2">
+                          {dist.riceKg > 0 && (
+                            <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                              {formatKg(dist.riceKg)}
+                            </span>
+                          )}
+                          {dist.moneyRp > 0 && (
+                            <span className="text-xs font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              {formatRupiah(dist.moneyRp)}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-400">Oleh: {dist.distributorAmil}</span>
+                          <button
+                            onClick={() => {
+                              if (confirm(`Hapus catatan distribusi untuk ${dist.mustahiqName}?`)) {
+                                onDeleteDistribution(dist.id);
+                              }
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
+                            title="Hapus"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </>
             )}
           </div>
         </div>

@@ -21,7 +21,8 @@ import {
   Share2,
   Printer,
   MessageCircle,
-  LogIn
+  LogIn,
+  Menu
 } from 'lucide-react';
 import { MasjidAccount } from '../types/auth';
 import { LandingPageConfig } from '../types/landing';
@@ -54,6 +55,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [calcSoulCount, setCalcSoulCount] = useState<number>(4);
   const [calcPricePerSoul, setCalcPricePerSoul] = useState<number>(defaultTierPrice);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   // Platform stats
   const totalMasjids = masjidsList.length;
@@ -144,37 +146,37 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
       {/* 2. MAIN NAVBAR */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-3">
           
           {/* Logo Brand */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-700 to-teal-800 flex items-center justify-center text-white shadow-md shadow-emerald-700/20">
-              <Scale className="w-5 h-5" />
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-emerald-700 to-teal-800 flex items-center justify-center text-white shadow-md shadow-emerald-700/20 shrink-0">
+              <Scale className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-black text-xl tracking-tight text-slate-900">SimZakat</span>
-                <span className="px-1.5 py-0.5 text-[10px] font-extrabold bg-emerald-100 text-emerald-800 rounded-md">
+                <span className="font-black text-lg sm:text-xl tracking-tight text-slate-900">SimZakat</span>
+                <span className="px-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold bg-emerald-100 text-emerald-800 rounded-md shrink-0">
                   DKM v2.5
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 font-medium hidden sm:block">
-                Sistem Manajemen Zakat Fitrah & Maal Terpadu
+              <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate hidden sm:block">
+                Sistem Manajemen Zakat Fitrah &amp; Maal Terpadu
               </p>
             </div>
           </div>
 
-          {/* Quick Action Navigation */}
-          <div className="flex items-center gap-2.5">
+          {/* Quick Action Navigation - Desktop */}
+          <div className="hidden md:flex items-center gap-2.5">
             {onOpenDonationModal && (
               <button
                 type="button"
                 onClick={onOpenDonationModal}
                 className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200/80 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                title="Dukung biaya server & operasional pengembang"
+                title="Dukung biaya server &amp; operasional pengembang"
               >
                 <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
-                <span className="hidden sm:inline">Infaq Dakwah</span>
+                <span>Infaq Dakwah</span>
               </button>
             )}
 
@@ -204,7 +206,108 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </button>
           </div>
 
+          {/* Quick Action Navigation - Mobile Controls */}
+          <div className="flex md:hidden items-center gap-1.5 shrink-0">
+            {onOpenDonationModal && (
+              <button
+                type="button"
+                onClick={onOpenDonationModal}
+                className="p-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer"
+                title="Infaq Operasional"
+              >
+                <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
+              </button>
+            )}
+
+            <button
+              onClick={onOpenLogin}
+              className="px-2.5 py-1.5 rounded-lg text-slate-700 font-bold text-xs hover:bg-slate-100 cursor-pointer"
+            >
+              Masuk
+            </button>
+
+            <button
+              onClick={onOpenRegister}
+              className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-bold text-xs cursor-pointer shadow-xs"
+            >
+              Daftar
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+              className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer ml-0.5"
+              aria-label="Buka Menu"
+            >
+              {isMobileNavOpen ? <XIcon className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+
         </div>
+
+        {/* Mobile Dropdown Menu Drawer */}
+        {isMobileNavOpen && (
+          <div className="md:hidden border-t border-slate-200 bg-white px-4 py-3 space-y-2 shadow-lg animate-in slide-in-from-top-2 duration-150">
+            <button
+              onClick={() => {
+                setIsMobileNavOpen(false);
+                onOpenRegister();
+              }}
+              className="w-full py-2.5 px-4 rounded-xl bg-emerald-700 text-white font-bold text-xs flex items-center justify-between cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <Building2 className="w-4 h-4" />
+                <span>Daftarkan Masjid (100% Gratis)</span>
+              </span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={() => {
+                setIsMobileNavOpen(false);
+                onExploreDemo();
+              }}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-between cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-600" />
+                <span>Coba Demo Posko (Simulasi)</span>
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            <button
+              onClick={() => {
+                setIsMobileNavOpen(false);
+                onOpenLogin();
+              }}
+              className="w-full py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs flex items-center justify-between cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <LogIn className="w-4 h-4 text-emerald-700" />
+                <span>Masuk ke Sistem Posko</span>
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            {onOpenDonationModal && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileNavOpen(false);
+                  onOpenDonationModal();
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 font-bold text-xs flex items-center justify-between cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
+                  <span>Infaq Sukarela Dakwah &amp; Operasional</span>
+                </span>
+                <ChevronRight className="w-3.5 h-3.5 text-rose-400" />
+              </button>
+            )}
+          </div>
+        )}
       </header>
 
       {/* 3. HERO SECTION (Spiritual, Elegant, & Islamic) */}

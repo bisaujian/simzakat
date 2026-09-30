@@ -20,7 +20,7 @@ import {
   Info
 } from 'lucide-react';
 import { AppConfig, MuzakkiTransaction, ZakatCategory, MaalSubtype } from '../types/zakat';
-import { formatKg, formatRupiah, generateReceiptNumber } from '../utils/helpers';
+import { formatKg, formatRupiah, formatThousands, generateReceiptNumber } from '../utils/helpers';
 import { DOA_ZAKAT_MAAL, PANDUAN_MAAL_SYAFII } from '../utils/fiqhSyafii';
 import { RupiahInput } from './common/RupiahInput';
 
@@ -158,6 +158,17 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     initialPrefill?.infaqDetail?.nominalRp || 50000
   );
   const [infaqAllocation, setInfaqAllocation] = useState<'operasional_masjid' | 'pembangunan' | 'sosial_yatim' | 'umum'>('operasional_masjid');
+
+  // Voluntary Infaq Tambahan (Infaq Suka Rela Tambahan Muzakki - Kustom / Bisa Masukan Sendiri)
+  const [includeVoluntaryInfaq, setIncludeVoluntaryInfaq] = useState<boolean>(
+    Boolean(initialPrefill?.voluntaryInfaqRp && initialPrefill.voluntaryInfaqRp > 0)
+  );
+  const [voluntaryInfaqNominal, setVoluntaryInfaqNominal] = useState<number>(
+    initialPrefill?.voluntaryInfaqRp || 20000
+  );
+  const [voluntaryInfaqAllocation, setVoluntaryInfaqAllocation] = useState<
+    'operasional_masjid' | 'pembangunan' | 'sosial_yatim' | 'umum'
+  >(initialPrefill?.voluntaryInfaqAllocation || 'operasional_masjid');
 
   // Fidyah Specific State
   const [fidyahDays, setFidyahDays] = useState<number>(
@@ -314,34 +325,37 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const fidyahCalculatedRp = fidyahDays * config.fidyahRatePerDay;
 
   // Final summary amounts for current selection
-  let finalMoneyRp = 0;
+  let baseMoneyRp = 0;
   let finalRiceKg = 0;
 
   if (category === 'fitrah') {
     if (fitrahUnit === 'uang') {
-      finalMoneyRp = calculatedFitrahRp;
+      baseMoneyRp = calculatedFitrahRp;
       finalRiceKg = 0;
     } else if (fitrahUnit === 'beras') {
       finalRiceKg = calculatedRiceKg;
-      finalMoneyRp = 0;
+      baseMoneyRp = 0;
     } else if (fitrahUnit === 'kombinasi') {
       finalRiceKg = calculatedRiceKg;
-      finalMoneyRp = calculatedFitrahRp;
+      baseMoneyRp = calculatedFitrahRp;
     }
   } else if (category === 'maal') {
     if (maalAssetType === 'pertanian' && agriPayMode === 'beras') {
       finalRiceKg = computedMaalDueRiceKg;
-      finalMoneyRp = 0;
+      baseMoneyRp = 0;
     } else {
-      finalMoneyRp = effectiveMaalNominalRp;
+      baseMoneyRp = effectiveMaalNominalRp;
     }
   } else if (category === 'profesi') {
-    finalMoneyRp = profesiCalculatedRp;
+    baseMoneyRp = profesiCalculatedRp;
   } else if (category === 'infaq') {
-    finalMoneyRp = infaqNominal;
+    baseMoneyRp = infaqNominal;
   } else if (category === 'fidyah') {
-    finalMoneyRp = fidyahCalculatedRp;
+    baseMoneyRp = fidyahCalculatedRp;
   }
+
+  const addedInfaqRp = (category !== 'infaq' && includeVoluntaryInfaq) ? (voluntaryInfaqNominal || 0) : 0;
+  const finalMoneyRp = baseMoneyRp + addedInfaqRp;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -392,6 +406,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       address: address.trim() || 'Dalam Wilayah DKM',
       rtRw: resolvedRtRw,
       category,
+      voluntaryInfaqRp: (category !== 'infaq' && includeVoluntaryInfaq) ? (voluntaryInfaqNominal || 0) : 0,
+      voluntaryInfaqAllocation: (category !== 'infaq' && includeVoluntaryInfaq) ? voluntaryInfaqAllocation : undefined,
       paymentMethod,
       amilName: amilName.trim() || config.headAmil,
       notes: notes.trim(),
@@ -465,11 +481,13 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     setMaalTotalAsset(0);
     setMaalCustomNominal(0);
     setMonthlyIncome(0);
+    setIncludeVoluntaryInfaq(false);
+    setVoluntaryInfaqNominal(20000);
     if (onClearPrefill) onClearPrefill();
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6 pb-20 lg:pb-6">
       {/* Intro Header */}
       <div className="bg-gradient-to-r from-emerald-800 to-teal-800 text-white rounded-2xl p-6 sm:p-7 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -1622,18 +1640,48 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                   </div>
                 </div>
 
-                {/* Quick nominal buttons */}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {[20000, 50000, 100000, 250000, 500000, 1000000].map((amt) => (
-                    <button
-                      key={amt}
-                      type="button"
-                      onClick={() => setInfaqNominal(amt)}
-                      className="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-medium"
-                    >
-                      +{formatRupiah(amt)}
-                    </button>
-                  ))}
+                {/* Quick nominal buttons & increments */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] text-slate-500 font-medium mr-1">Nominal Pilihan:</span>
+                    {[20000, 50000, 100000, 250000, 500000, 1000000].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setInfaqNominal(amt)}
+                        className={`px-2.5 py-1 text-xs rounded-lg font-bold border transition cursor-pointer ${
+                          infaqNominal === amt
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                            : 'bg-white border-slate-300 text-slate-700 hover:bg-emerald-50 hover:border-emerald-300'
+                        }`}
+                      >
+                        {formatRupiah(amt)}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[11px] text-slate-400 font-medium mr-1">Tambah Nominal:</span>
+                    {[10000, 25000, 50000, 100000].map((addAmt) => (
+                      <button
+                        key={addAmt}
+                        type="button"
+                        onClick={() => setInfaqNominal((prev) => (prev || 0) + addAmt)}
+                        className="px-2 py-0.5 text-[11px] bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-800 rounded font-medium border border-slate-200 cursor-pointer transition"
+                      >
+                        +{formatThousands(addAmt)}
+                      </button>
+                    ))}
+                    {infaqNominal > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setInfaqNominal(0)}
+                        className="px-2 py-0.5 text-[11px] text-rose-600 hover:bg-rose-50 rounded font-medium cursor-pointer"
+                      >
+                        Reset (0)
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -1672,17 +1720,132 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             )}
           </div>
 
-          {/* Card 4: Payment method & Amil note */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Card 4: Tambahan Infaq / Sedekah Suka Rela (Kustom / Bisa Masukan Sendiri) */}
+          {category !== 'infaq' && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-3.5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
+                    <HeartHandshake className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                      4. Infaq / Sedekah Suka Rela Tambahan (Opsional)
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      Muzakki dapat menyertakan infaq seikhlasnya (nominal bebas / bisa kustom sendiri).
+                    </p>
+                  </div>
+                </div>
+
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={includeVoluntaryInfaq}
+                    onChange={(e) => setIncludeVoluntaryInfaq(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+              </div>
+
+              {includeVoluntaryInfaq && (
+                <div className="p-3.5 sm:p-4 rounded-xl bg-rose-50/60 border border-rose-200 space-y-3 animate-in fade-in duration-150">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Peruntukan Infaq Sukarela:
+                      </label>
+                      <select
+                        value={voluntaryInfaqAllocation}
+                        onChange={(e) => setVoluntaryInfaqAllocation(e.target.value as any)}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white font-medium"
+                      >
+                        <option value="operasional_masjid">Kas Operasional Masjid &amp; Amil</option>
+                        <option value="sosial_yatim">Santunan Anak Yatim &amp; Dhuafa</option>
+                        <option value="pembangunan">Renovasi &amp; Pembangunan Sarana Masjid</option>
+                        <option value="umum">Infaq &amp; Sedekah Umum (Kemaslahatan Umat)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-slate-700">
+                          Nominal Infaq Sukarela (Rp):
+                        </label>
+                        <span className="text-[10px] text-rose-700 font-bold bg-white px-1.5 py-0.5 rounded border border-rose-200">
+                          Bisa Masukkan Bebas
+                        </span>
+                      </div>
+                      <RupiahInput
+                        value={voluntaryInfaqNominal}
+                        onChange={setVoluntaryInfaqNominal}
+                        placeholder="Contoh: 20.000"
+                        className="border-2 border-rose-400 font-bold text-slate-900 text-sm"
+                        showTerbilang={true}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Preset quick buttons & chips */}
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] text-slate-500 font-medium mr-1">Pilihan Cepat:</span>
+                      {[10000, 20000, 50000, 100000, 250000].map((amt) => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setVoluntaryInfaqNominal(amt)}
+                          className={`px-2.5 py-1 text-xs rounded-lg font-bold border transition cursor-pointer ${
+                            voluntaryInfaqNominal === amt
+                              ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
+                              : 'bg-white border-slate-300 text-slate-700 hover:bg-rose-50'
+                          }`}
+                        >
+                          {formatRupiah(amt)}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                      <span className="text-[11px] text-slate-400 font-medium mr-1">Tambah Kustom:</span>
+                      {[5000, 10000, 25000, 50000].map((addAmt) => (
+                        <button
+                          key={addAmt}
+                          type="button"
+                          onClick={() => setVoluntaryInfaqNominal((prev) => (prev || 0) + addAmt)}
+                          className="px-2 py-0.5 text-[11px] bg-white hover:bg-rose-100 text-rose-800 rounded font-medium border border-rose-200 cursor-pointer transition"
+                        >
+                          +{formatThousands(addAmt)}
+                        </button>
+                      ))}
+                      {voluntaryInfaqNominal > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setVoluntaryInfaqNominal(0)}
+                          className="px-2 py-0.5 text-[11px] text-slate-500 hover:text-rose-600 rounded font-medium cursor-pointer"
+                        >
+                          Kosongkan (0)
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Card 5: Payment method & Amil note */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                4. Metode Pembayaran
+                5. Metode Pembayaran
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('tunai')}
-                  className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition ${
+                  className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
                     paymentMethod === 'tunai'
                       ? 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/20'
                       : 'border-slate-200 text-slate-600'
@@ -1694,7 +1857,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('transfer_qris')}
-                  className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition ${
+                  className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer ${
                     paymentMethod === 'transfer_qris'
                       ? 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-500/20'
                       : 'border-slate-200 text-slate-600'
@@ -1708,7 +1871,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                5. Petugas Amil Penerima
+                6. Petugas Amil Penerima
               </label>
               <input
                 type="text"
@@ -1736,7 +1899,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 
         {/* Right Col: Summary & Ijab Qabul Checkout */}
         <div className="space-y-6">
-          <div className="bg-gradient-to-b from-slate-900 to-emerald-950 text-white rounded-2xl p-6 shadow-md border border-emerald-900 space-y-5 sticky top-24">
+          <div className="bg-gradient-to-b from-slate-900 to-emerald-950 text-white rounded-2xl p-5 sm:p-6 shadow-md border border-emerald-900 space-y-4 sm:space-y-5 sticky top-24">
             <div className="border-b border-white/10 pb-4">
               <span className="text-xs uppercase tracking-wider text-emerald-400 font-semibold block">
                 Ringkasan Transaksi
@@ -1752,7 +1915,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               </p>
             </div>
 
-            <div className="space-y-3 text-sm">
+            <div className="space-y-2.5 sm:space-y-3 text-sm">
               <div className="flex justify-between py-1 border-b border-white/5">
                 <span className="text-slate-400">Muzakki:</span>
                 <span className="font-semibold text-white truncate max-w-[150px]">
@@ -1806,6 +1969,27 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                 </>
               )}
 
+              {/* Rincian Zakat Pokok & Infaq Sukarela Tambahan jika aktif */}
+              {includeVoluntaryInfaq && addedInfaqRp > 0 && category !== 'infaq' && (
+                <>
+                  <div className="flex justify-between py-1 border-b border-white/10 text-xs">
+                    <span className="text-slate-300">Zakat Pokok:</span>
+                    <span className="font-semibold text-emerald-300">
+                      {baseMoneyRp > 0 ? formatRupiah(baseMoneyRp) : (finalRiceKg > 0 ? `${formatKg(finalRiceKg)} Beras` : 'Rp 0')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-white/10 text-xs">
+                    <span className="text-rose-300 flex items-center gap-1 font-semibold">
+                      <HeartHandshake className="w-3 h-3 text-rose-400" />
+                      Infaq Sukarela:
+                    </span>
+                    <span className="font-bold text-rose-300">
+                      +{formatRupiah(addedInfaqRp)}
+                    </span>
+                  </div>
+                </>
+              )}
+
               <div className="flex justify-between py-1 border-b border-white/5">
                 <span className="text-slate-400">Metode:</span>
                 <span className="font-medium text-emerald-300 capitalize">
@@ -1854,6 +2038,39 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               <ArrowRight className="w-4 h-4 ml-1" />
             </button>
           </div>
+        </div>
+
+        {/* Mobile Fixed Floating Action Bar for Fast Touch Entry */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 backdrop-blur-md border-t border-emerald-900/80 px-4 py-3 text-white shadow-2xl flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wide">
+              Total Diterima Amil
+            </span>
+            <div className="flex items-center gap-1.5 truncate">
+              {finalRiceKg > 0 && (
+                <span className="text-amber-400 font-black text-xs sm:text-sm">
+                  {formatKg(finalRiceKg)}
+                </span>
+              )}
+              {finalRiceKg > 0 && finalMoneyRp > 0 && <span className="text-slate-500 text-xs">+</span>}
+              {finalMoneyRp > 0 && (
+                <span className="text-emerald-400 font-black text-xs sm:text-sm">
+                  {formatRupiah(finalMoneyRp)}
+                </span>
+              )}
+              {finalRiceKg === 0 && finalMoneyRp === 0 && (
+                <span className="text-slate-400 text-xs">Rp 0</span>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md shrink-0 cursor-pointer"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Simpan &amp; Kuitansi</span>
+          </button>
         </div>
       </form>
     </div>

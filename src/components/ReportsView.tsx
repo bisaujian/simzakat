@@ -158,23 +158,24 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Bar Navigation */}
-      <div className="no-print flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="no-print flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-200">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Laporan & Berita Acara (BAST) Zakat
-          </h2>
-          <p className="text-slate-600 text-sm mt-0.5">
-            Pertanggungjawaban keuangan, logistik komoditas, dan serah terima resmi panitia amil.
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+            Laporan &amp; Berita Acara (BAST) Zakat
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
+            Pertanggungjawaban keuangan, logistik komoditas beras, dan serah terima resmi panitia amil.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="bg-white border border-slate-300 rounded-xl p-1 flex">
+          {/* Segmented Control */}
+          <div className="bg-slate-100 border border-slate-200 rounded-lg p-0.5 flex">
             <button
               onClick={() => setActiveReportTab('ringkasan')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition cursor-pointer ${
                 activeReportTab === 'ringkasan'
-                  ? 'bg-emerald-700 text-white shadow-xs'
+                  ? 'bg-white text-slate-900 font-semibold shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -182,70 +183,70 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             </button>
             <button
               onClick={() => setActiveReportTab('bast')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition cursor-pointer ${
                 activeReportTab === 'bast'
-                  ? 'bg-emerald-700 text-white shadow-xs'
+                  ? 'bg-white text-slate-900 font-semibold shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Berita Acara (BAST Cetak)
+              Berita Acara (BAST)
             </button>
             {archives.length > 0 && onOpenArchives && (
               <button
                 type="button"
                 onClick={onOpenArchives}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-emerald-800 hover:bg-slate-100 flex items-center gap-1 transition cursor-pointer"
+                className="px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:text-emerald-800 hover:bg-slate-200/60 flex items-center gap-1 transition cursor-pointer"
                 title="Buka daftar riwayat arsip LPJ & BAST tahun-tahun sebelumnya"
               >
-                <Archive className="w-3.5 h-3.5 text-emerald-600" />
+                <Archive className="w-3.5 h-3.5 text-emerald-700" />
                 <span>Arsip ({archives.length})</span>
               </button>
             )}
           </div>
 
           <button
-            onClick={handleOpenTab}
-            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-            title="Buka dokumen di tab baru (bebas batas iframe)"
-          >
-            <ExternalLink className="w-3.5 h-3.5 text-slate-600" />
-            <span>Tab Cetak</span>
-          </button>
-
-          <button
             onClick={handleExportExcel}
-            className="px-3.5 py-2 bg-emerald-800 hover:bg-emerald-700 text-white border border-emerald-600 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
             title="Unduh seluruh rekapitulasi kas dan neraca ZISWAF ke format Excel (.xls)"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-300" />
-            <span>Ekspor Excel (.xls)</span>
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Excel (.xls)</span>
           </button>
 
           <button
             onClick={() => handleExportWord()}
-            className="px-3.5 py-2 bg-blue-700 hover:bg-blue-600 text-white border border-blue-600 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
-            title={`Unduh ${activeReportTab === 'bast' ? 'Berita Acara (BAST)' : 'Laporan LPJ Rekapitulasi'} ke Microsoft Word (.doc) agar mudah diedit`}
+            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+            title={`Unduh ${activeReportTab === 'bast' ? 'Berita Acara (BAST)' : 'Laporan LPJ Rekapitulasi'} ke Microsoft Word (.doc)`}
           >
-            <FileText className="w-3.5 h-3.5 text-blue-200" />
-            <span>Ekspor Word (.doc)</span>
+            <FileText className="w-3.5 h-3.5 text-blue-700" />
+            <span>Word (.doc)</span>
           </button>
 
           <button
             onClick={handleExportPdf}
             disabled={isExportingPdf}
-            className="px-3.5 py-2 bg-sky-700 hover:bg-sky-600 disabled:opacity-60 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-xs cursor-pointer"
+            className="px-3 py-1.5 bg-white hover:bg-slate-50 disabled:opacity-60 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
             title="Unduh laporan dalam format PDF resmi"
           >
-            <FileText className="w-3.5 h-3.5" />
-            <span>{isExportingPdf ? 'Membuat PDF...' : 'Unduh PDF'}</span>
+            <FileText className="w-3.5 h-3.5 text-rose-700" />
+            <span>{isExportingPdf ? 'Membuat...' : 'PDF'}</span>
+          </button>
+
+          <button
+            onClick={handleOpenTab}
+            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+            title="Buka dokumen di tab baru (bebas batas iframe)"
+          >
+            <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+            <span>Tab Cetak</span>
           </button>
 
           <button
             onClick={handlePrint}
-            className="px-4 py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+            className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-2xs transition cursor-pointer"
             title="Buka dialog cetak printer"
           >
-            <Printer className="w-4 h-4" />
+            <Printer className="w-3.5 h-3.5 text-emerald-100" />
             <span>Cetak Dokumen</span>
           </button>
         </div>

@@ -511,7 +511,7 @@ export default function App() {
         </main>
       ) : (
         /* Main Content Area */
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 pb-24 md:pb-8">
         {activeTab === 'kasir' && (
           <TransactionForm
             config={config}
@@ -594,7 +594,7 @@ export default function App() {
       )}
 
       {/* Footer */}
-      <footer className="no-print bg-white border-t border-slate-200 py-5 text-center text-xs text-slate-500">
+      <footer className="no-print bg-white border-t border-slate-200 py-5 pb-20 md:pb-5 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p>
             {config.organizationName} • Tahun {config.hijriYear} / {config.masehiYear}
