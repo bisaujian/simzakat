@@ -2148,7 +2148,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        Deskripsi Ajakan Khidmah & Infaq Operasional
+                        Deskripsi Ajakan Khidmah & Infaq Operasional (Di Halaman Beranda)
                       </label>
                       <textarea
                         rows={2}
@@ -2156,6 +2156,86 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         onChange={(e) => setLandingForm({ ...landingForm, sustainabilityDescription: e.target.value })}
                         className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
                       />
+                    </div>
+
+                    {/* Section Khusus: Konten Dialog Pop-Up Infaq Operasional */}
+                    <div className="p-4 rounded-2xl bg-purple-950/20 border border-purple-800/40 space-y-4">
+                      <div className="flex items-center gap-2 text-purple-300 font-bold text-xs border-b border-purple-800/40 pb-2">
+                        <Sparkles className="w-4 h-4 text-purple-400" />
+                        <span>Kustomisasi Teks Dialog Pop-Up Infaq Donasi (Donation Modal)</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                            Badge Atas Dialog
+                          </label>
+                          <input
+                            type="text"
+                            value={landingForm.donationSubtitle || ''}
+                            placeholder="KHIDMAH DAKWAH & SEDEKAH JARIYAH"
+                            onChange={(e) => setLandingForm({ ...landingForm, donationSubtitle: e.target.value })}
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                            Judul Utama Dialog
+                          </label>
+                          <input
+                            type="text"
+                            value={landingForm.donationTitle || ''}
+                            placeholder="Infaq Operasional SimZakat"
+                            onChange={(e) => setLandingForm({ ...landingForm, donationTitle: e.target.value })}
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
+                          <span>Teks Sapaan & Penjelasan Aplikasi</span>
+                          <span className="text-[10px] text-emerald-400 font-normal">
+                            * Nama masjid otomatis disisipkan di awal: "Ahlan wa Sahlan, Pengurus [Nama Masjid]. "
+                          </span>
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={landingForm.donationDescription || ''}
+                          placeholder="Aplikasi SimZakat disediakan 100% Gratis tanpa biaya lisensi agar setiap masjid dan musholla dapat mengelola zakat secara amanah dan profesional."
+                          onChange={(e) => setLandingForm({ ...landingForm, donationDescription: e.target.value })}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                            Judul Kotak Penjelasan
+                          </label>
+                          <input
+                            type="text"
+                            value={landingForm.donationReasonTitle || ''}
+                            placeholder="Mengapa Infaq Pengembangan Ini Dibutuhkan?"
+                            onChange={(e) => setLandingForm({ ...landingForm, donationReasonTitle: e.target.value })}
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+                          />
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                            Isi Penjelasan Kotak Hijau
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={landingForm.donationReasonText || ''}
+                            placeholder="Untuk menjaga kelangsungan sistem, penyediaan server VPS berkecepatan tinggi, pemeliharaan basis data MySQL, sertifikat keamanan SSL, dan pembaruan fiqih zakat berkala. Amil dapat menyisihkan donasi sukarela ini dari bagian hak amil / infaq operasional masjid sesuai kerelaan."
+                            onChange={(e) => setLandingForm({ ...landingForm, donationReasonText: e.target.value })}
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     {/* Bank Accounts Grid */}

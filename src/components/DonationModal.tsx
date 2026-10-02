@@ -152,10 +152,10 @@ export const DonationModal: React.FC<DonationModalProps> = ({
           <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-xs text-emerald-950 space-y-1.5 sm:space-y-2">
             <div className="font-extrabold flex items-center gap-2 text-emerald-900">
               <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Mengapa Infaq Pengembangan Ini Dibutuhkan?</span>
+              <span>{cfg.donationReasonTitle || 'Mengapa Infaq Pengembangan Ini Dibutuhkan?'}</span>
             </div>
             <p className="text-slate-600 leading-relaxed text-[11px] sm:text-[11.5px]">
-              Untuk menjaga kelangsungan sistem, penyediaan <strong>server VPS berkecepatan tinggi</strong>, pemeliharaan basis data MySQL, sertifikat keamanan SSL, dan pembaruan fiqih zakat berkala. Amil dapat menyisihkan donasi sukarela ini dari <em>bagian hak amil / infaq operasional masjid</em> sesuai kerelaan.
+              {cfg.donationReasonText || 'Untuk menjaga kelangsungan sistem, penyediaan server VPS berkecepatan tinggi, pemeliharaan basis data MySQL, sertifikat keamanan SSL, dan pembaruan fiqih zakat berkala. Amil dapat menyisihkan donasi sukarela ini dari bagian hak amil / infaq operasional masjid sesuai kerelaan.'}
             </p>
           </div>
 

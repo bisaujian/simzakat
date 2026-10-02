@@ -78,6 +78,8 @@ export interface LandingPageConfig {
   donationTitle: string;
   donationSubtitle: string;
   donationDescription: string;
+  donationReasonTitle?: string;
+  donationReasonText?: string;
   bsiBankName: string;
   bsiAccountNumber: string;
   bsiAccountHolder: string;
@@ -254,6 +256,8 @@ export const DEFAULT_LANDING_CONFIG: LandingPageConfig = {
   donationTitle: 'Infaq Operasional SimZakat',
   donationSubtitle: 'Khidmah Dakwah & Sedekah Jariyah',
   donationDescription: 'Aplikasi SimZakat disediakan 100% Gratis tanpa biaya lisensi agar setiap masjid dan musholla dapat mengelola zakat secara amanah dan profesional.',
+  donationReasonTitle: 'Mengapa Infaq Pengembangan Ini Dibutuhkan?',
+  donationReasonText: 'Untuk menjaga kelangsungan sistem, penyediaan server VPS berkecepatan tinggi, pemeliharaan basis data MySQL, sertifikat keamanan SSL, dan pembaruan fiqih zakat berkala. Amil dapat menyisihkan donasi sukarela ini dari bagian hak amil / infaq operasional masjid sesuai kerelaan.',
   bsiBankName: 'Bank Syariah Indonesia (BSI)',
   bsiAccountNumber: '7234567890',
   bsiAccountHolder: 'PENGEMBANGAN SIMZAKAT DAKWAH',
