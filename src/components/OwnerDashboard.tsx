@@ -588,22 +588,25 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   };
 
   // Filtered and sorted masjids from reactive local state
-  const filteredMasjids = masjids
+  const filteredMasjids = (masjids || [])
     .filter((m) => {
+      if (!m) return false;
+      const s = (searchTerm || '').trim().toLowerCase();
       const matchesSearch = 
-        m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (m.province && m.province.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (m.address && m.address.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        m.leadName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.contactPhone.includes(searchTerm) ||
-        (m.email && m.email.toLowerCase().includes(searchTerm.toLowerCase()));
+        !s ||
+        (m.name || '').toLowerCase().includes(s) ||
+        (m.city || '').toLowerCase().includes(s) ||
+        (m.province || '').toLowerCase().includes(s) ||
+        (m.address || '').toLowerCase().includes(s) ||
+        (m.leadName || '').toLowerCase().includes(s) ||
+        (m.contactPhone || '').includes(s) ||
+        (m.email || '').toLowerCase().includes(s);
       
       const matchesStatus = statusFilter === 'all' || m.status === statusFilter;
       return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
-      if (sortBy === 'name') return a.name.localeCompare(b.name);
+      if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
       if (sortBy === 'ziswaf') {
         const totalA = (a.totalFitrahCashRp || 0) + (a.totalMaalRp || 0);
         const totalB = (b.totalFitrahCashRp || 0) + (b.totalMaalRp || 0);
@@ -613,23 +616,23 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         return (b.totalMuzakkiSouls || 0) - (a.totalMuzakkiSouls || 0);
       }
       if (sortBy === 'recent') {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
       }
       if (sortBy === 'status') {
-        return a.status.localeCompare(b.status);
+        return (a.status || '').localeCompare(b.status || '');
       }
       return 0;
     });
 
   // Calculate platform totals
-  const totalMasjids = masjids.length;
-  const activeCount = masjids.filter((m) => m.status === 'active').length;
-  const pendingCount = masjids.filter((m) => m.status === 'pending_verification').length;
-  const suspendedCount = masjids.filter((m) => m.status === 'suspended').length;
-  const totalSouls = masjids.reduce((acc, m) => acc + (m.totalMuzakkiSouls || 0), 0);
-  const totalRiceKg = masjids.reduce((acc, m) => acc + (m.totalFitrahRiceKg || 0), 0);
-  const totalFitrahCashRp = masjids.reduce((acc, m) => acc + (m.totalFitrahCashRp || 0), 0);
-  const totalMaalRp = masjids.reduce((acc, m) => acc + (m.totalMaalRp || 0), 0);
+  const totalMasjids = (masjids || []).length;
+  const activeCount = (masjids || []).filter((m) => m && m.status === 'active').length;
+  const pendingCount = (masjids || []).filter((m) => m && m.status === 'pending_verification').length;
+  const suspendedCount = (masjids || []).filter((m) => m && m.status === 'suspended').length;
+  const totalSouls = (masjids || []).reduce((acc, m) => acc + (m?.totalMuzakkiSouls || 0), 0);
+  const totalRiceKg = (masjids || []).reduce((acc, m) => acc + (m?.totalFitrahRiceKg || 0), 0);
+  const totalFitrahCashRp = (masjids || []).reduce((acc, m) => acc + (m?.totalFitrahCashRp || 0), 0);
+  const totalMaalRp = (masjids || []).reduce((acc, m) => acc + (m?.totalMaalRp || 0), 0);
   const totalZiswafRp = totalFitrahCashRp + totalMaalRp;
 
   const handleDownloadSQL = () => {
@@ -3105,7 +3108,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   </div>
                   <div>
                     <h3 className="font-extrabold text-sm sm:text-base text-white">
-                      Permintaan Reset Sandi DKM &amp; Petugas Masjid ({resetTickets.filter(t => t.status === 'pending').length} Menunggu)
+                      Permintaan Reset Sandi DKM &amp; Petugas Masjid ({(resetTickets || []).filter(t => t && t.status === 'pending').length} Menunggu)
                     </h3>
                     <p className="text-[11px] text-slate-400">
                       Pantau dan verifikasi permintaan reset kata sandi resmi dari seluruh pengurus masjid di Indonesia.
@@ -3140,13 +3143,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
               {/* Tab Filter & Quick Actions */}
               {(() => {
-                const pendingTickets = resetTickets.filter((t) => t.status === 'pending');
-                const resolvedTickets = resetTickets.filter((t) => t.status === 'resolved');
+                const pendingTickets = (resetTickets || []).filter((t) => t && t.status === 'pending');
+                const resolvedTickets = (resetTickets || []).filter((t) => t && t.status === 'resolved');
                 const displayedTickets = ticketFilter === 'pending'
                   ? pendingTickets
                   : ticketFilter === 'resolved'
                   ? resolvedTickets
-                  : resetTickets;
+                  : (resetTickets || []);
 
                 return (
                   <div className="space-y-3">
@@ -3272,8 +3275,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                                 {isPending ? (
                                   <>
                                     <a
-                                      href={`https://wa.me/${ticket.phone.replace(/[^0-9]/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(
-                                        `Assalamu'alaikum ${ticket.accountName}. Kode verifikasi resmi pemulihan kata sandi SimZakat masjid Anda adalah: ${ticket.code}. Berlaku 15 menit. Jaga kerahasiaan kode ini.`
+                                      href={`https://wa.me/${(ticket.phone || '').replace(/[^0-9]/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(
+                                        `Assalamu'alaikum ${ticket.accountName || 'Pengurus'}. Kode verifikasi resmi pemulihan kata sandi SimZakat masjid Anda adalah: ${ticket.code}. Berlaku 15 menit. Jaga kerahasiaan kode ini.`
                                       )}`}
                                       target="_blank"
                                       rel="noopener noreferrer"

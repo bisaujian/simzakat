@@ -617,9 +617,9 @@ export const authService = {
     }
 
     const users = getLocalItem<(UserAccount & { password?: string })[]>(STORAGE_KEYS.USERS, DEFAULT_USERS);
-    const query = payload.usernameOrEmail.trim().toLowerCase();
+    const query = (payload.usernameOrEmail || '').trim().toLowerCase();
     const userIndex = users.findIndex(
-      (u) => u.username.toLowerCase() === query || u.email.toLowerCase() === query
+      (u) => (u.username || '').toLowerCase() === query || (u.email || '').toLowerCase() === query
     );
 
     const user = userIndex !== -1 ? users[userIndex] : undefined;
@@ -629,13 +629,15 @@ export const authService = {
     // Cek juga dari daftar tiket lokal
     const tickets = getLocalItem<PasswordResetTicket[]>('simzakat_password_reset_tickets', []);
     const matchingTicket = tickets.find((t) => 
-      t.username.toLowerCase() === query || 
-      t.email?.toLowerCase() === query || 
-      (user && t.userId === user.id)
+      t && (
+        (t.username || '').toLowerCase() === query || 
+        (t.email || '').toLowerCase() === query || 
+        (user && t.userId === user.id)
+      )
     );
 
     // Accept generated code or ticket code or master recovery code '144799' for emergency recovery
-    const enteredCode = payload.verificationCode.replace(/\s+/g, '').trim();
+    const enteredCode = (payload.verificationCode || '').replace(/\s+/g, '').trim();
     const validLocalCode = resetData?.code || matchingTicket?.code;
     const isMasterCode = enteredCode === '144799';
 
@@ -643,7 +645,7 @@ export const authService = {
       return { success: false, message: 'Kode verifikasi pemulihan tidak valid atau sudah kedaluwarsa. Pastikan 6 digit kode dimasukkan dengan tepat.' };
     }
 
-    if (payload.newPassword.length < 5) {
+    if ((payload.newPassword || '').length < 5) {
       return { success: false, message: 'Kata sandi baru minimal 5 karakter demi keamanan.' };
     }
 
@@ -657,7 +659,7 @@ export const authService = {
 
     // Update ticket status to resolved
     const updatedTickets = tickets.map((t) => 
-      (t.username.toLowerCase() === query || t.email?.toLowerCase() === query || (user && t.userId === user.id)) && t.status === 'pending'
+      t && (((t.username || '').toLowerCase() === query || (t.email || '').toLowerCase() === query || (user && t.userId === user.id)) && t.status === 'pending')
         ? { ...t, status: 'resolved' as const } 
         : t
     );

@@ -269,13 +269,16 @@ export const MustahiqManager: React.FC<MustahiqManagerProps> = ({
 
   // Filtered List
   const filteredList = useMemo(() => {
+    const s = (searchQuery || '').trim().toLowerCase();
     return mustahiqList.filter((m) => {
+      if (!m) return false;
       const matchSearch =
-        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.rtRw.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (m.nik && m.nik.includes(searchQuery)) ||
-        (m.notes && m.notes.toLowerCase().includes(searchQuery.toLowerCase()));
+        !s ||
+        (m.name || '').toLowerCase().includes(s) ||
+        (m.address || '').toLowerCase().includes(s) ||
+        (m.rtRw || '').toLowerCase().includes(s) ||
+        (m.nik ? m.nik.includes(searchQuery) : false) ||
+        (m.notes ? m.notes.toLowerCase().includes(s) : false);
 
       const matchAsnaf = asnafFilter === 'all' || m.asnaf === asnafFilter;
       const matchPriority = priorityFilter === 'all' || m.priority === priorityFilter;

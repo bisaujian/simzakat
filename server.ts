@@ -181,19 +181,19 @@ app.get('/api/platform/masjids', async (_req: Request, res: Response) => {
     const rows = await safeMySQLQuery('SELECT * FROM masjids ORDER BY created_at DESC');
     if (rows && rows.length > 0) {
       const mapped = rows.map((r: any) => ({
-        id: r.id,
-        name: r.name,
-        slug: r.slug,
-        address: r.address,
-        city: r.city,
-        province: r.province,
-        contactPhone: r.contact_phone,
-        email: r.email,
-        leadName: r.lead_name,
-        status: r.status,
-        hijriYear: r.hijri_year,
-        masehiYear: r.masehi_year,
-        createdAt: r.created_at,
+        id: r.id || '',
+        name: r.name || 'Masjid',
+        slug: r.slug || '',
+        address: r.address || '',
+        city: r.city || '',
+        province: r.province || '',
+        contactPhone: r.contact_phone || '',
+        email: r.email || '',
+        leadName: r.lead_name || 'Ketua DKM',
+        status: r.status || 'active',
+        hijriYear: r.hijri_year || '1447 H',
+        masehiYear: r.masehi_year || '2026 M',
+        createdAt: r.created_at || new Date().toISOString(),
       }));
       return res.json({ success: true, masjids: mapped });
     }

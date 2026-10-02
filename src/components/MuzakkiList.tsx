@@ -45,13 +45,16 @@ export const MuzakkiList: React.FC<MuzakkiListProps> = ({
 
   // Filtered transactions
   const filtered = useMemo(() => {
+    const s = (searchQuery || '').trim().toLowerCase();
     return transactions.filter((tx) => {
+      if (!tx) return false;
       const matchSearch =
-        tx.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tx.receiptNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tx.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tx.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (tx.notes && tx.notes.toLowerCase().includes(searchQuery.toLowerCase()));
+        !s ||
+        (tx.name || '').toLowerCase().includes(s) ||
+        (tx.receiptNumber || '').toLowerCase().includes(s) ||
+        (tx.address || '').toLowerCase().includes(s) ||
+        (tx.phone || '').toLowerCase().includes(s) ||
+        (tx.notes ? tx.notes.toLowerCase().includes(s) : false);
 
       const matchCategory = categoryFilter === 'all' || tx.category === categoryFilter;
       const matchRt = rtFilter === 'all' || tx.rtRw === rtFilter;
