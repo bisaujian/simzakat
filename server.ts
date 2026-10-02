@@ -288,6 +288,7 @@ app.delete('/api/platform/masjids/:id', async (req: Request, res: Response) => {
 
 // Health check & Database Status
 app.get('/api/health', async (_req: Request, res: Response) => {
+  await getActiveMySQLPool();
   const mysqlActive = isMySQLConnected();
   res.json({
     status: 'ok',

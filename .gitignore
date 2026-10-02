@@ -4,5 +4,15 @@ dist/
 coverage/
 .DS_Store
 *.log
+
+# Environment / secrets
 .env*
 !.env.example
+
+# Runtime / local data
+data/
+
+# Local VPS backups / archives
+*.backup-*
+*.zip
+simzakat-main/
