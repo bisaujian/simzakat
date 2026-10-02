@@ -18,13 +18,15 @@ import {
   Building2
 } from 'lucide-react';
 import { LoginPayload } from '../types/auth';
-import { authService } from '../services/apiClient';
+import { LandingPageConfig } from '../types/landing';
+import { authService, landingConfigService } from '../services/apiClient';
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLogin: (payload: LoginPayload) => Promise<{ success: boolean; message?: string }>;
   onSwitchToRegister: () => void;
+  landingConfig?: LandingPageConfig;
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({
@@ -32,6 +34,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onClose,
   onLogin,
   onSwitchToRegister,
+  landingConfig,
 }) => {
   // Mode: 'login' | 'forgot_password'
   const [modalMode, setModalMode] = useState<'login' | 'forgot_password'>('login');
@@ -567,20 +570,30 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                       <div className="text-[11px] text-slate-600 leading-relaxed">
                         Kode otorisasi 6-digit telah dikirimkan ke WhatsApp Anda. Masukkan 6 digit kode tersebut di bawah untuk melanjutkan penggantian kata sandi.
                       </div>
-                      <a
-                        href={`https://wa.me/6281100001111?text=${encodeURIComponent(
-                          `Assalamu'alaikum Super Admin SimZakat. Saya pengurus ${accountOwnerName} (${accountMasjidName || 'DKM'}), memohon bantuan kode verifikasi reset kata sandi akun username: ${forgotUsername}.`
-                        )}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-emerald-100/70 border border-emerald-300 text-emerald-900 text-[11px] font-bold flex items-center justify-between transition cursor-pointer"
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <MessageCircle className="w-3.5 h-3.5 text-emerald-700" />
-                          <span>Butuh bantuan? Chat Super Admin di WhatsApp</span>
-                        </div>
-                        <span className="text-[10px] text-emerald-700 font-semibold underline">Hubungi &rarr;</span>
-                      </a>
+                      {(() => {
+                        const cfg = landingConfig || landingConfigService.getConfig();
+                        const rawWa = (cfg.contactWhatsApp || '081299887766').replace(/[^0-9]/g, '');
+                        const cleanWa = rawWa.startsWith('0') 
+                          ? '62' + rawWa.slice(1) 
+                          : (rawWa.startsWith('62') ? rawWa : '62' + rawWa);
+                        const displayWa = cfg.contactWhatsApp || 'Super Admin';
+                        return (
+                          <a
+                            href={`https://wa.me/${cleanWa}?text=${encodeURIComponent(
+                              `Assalamu'alaikum Super Admin SimZakat. Saya pengurus ${accountOwnerName} (${accountMasjidName || 'DKM'}), memohon bantuan kode verifikasi reset kata sandi akun username: ${forgotUsername}.`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-emerald-100/70 border border-emerald-300 text-emerald-900 text-[11px] font-bold flex items-center justify-between transition cursor-pointer"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <MessageCircle className="w-3.5 h-3.5 text-emerald-700" />
+                              <span>Butuh bantuan? Chat Super Admin di WhatsApp ({displayWa})</span>
+                            </div>
+                            <span className="text-[10px] text-emerald-700 font-semibold underline">Hubungi &rarr;</span>
+                          </a>
+                        );
+                      })()}
                     </div>
                   </div>
 

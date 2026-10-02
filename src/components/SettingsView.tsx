@@ -20,8 +20,7 @@ import {
   Sparkles,
   Eye,
   Printer,
-  Clock,
-  Database
+  Clock
 } from 'lucide-react';
 import { AppConfig, DistributionRecord, Mustahiq, MuzakkiTransaction, SkKemenagTier, YearlyArchiveRecord } from '../types/zakat';
 import { MasjidAccount } from '../types/auth';
@@ -255,15 +254,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     a.download = `Backup_SimZakat_${formData.organizationName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const handleDownloadMySql = () => {
-    const link = document.createElement('a');
-    link.href = '/simzakat_database_phpmyadmin.sql';
-    link.download = `simzakat_database_phpmyadmin_${new Date().toISOString().split('T')[0]}.sql`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const handleRestoreJson = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -880,15 +870,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </p>
 
         <div className="flex flex-wrap items-center gap-3 pt-1">
-          <button
-            onClick={handleDownloadMySql}
-            className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs transition cursor-pointer"
-            title="Unduh skrip database MySQL yang siap di-upload ke phpMyAdmin (cPanel/VPS/Hosting)"
-          >
-            <Database className="w-4 h-4 text-emerald-200" />
-            <span>Unduh Database MySQL (.sql) phpMyAdmin</span>
-          </button>
-
           <button
             onClick={handleBackupJson}
             className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs transition cursor-pointer"

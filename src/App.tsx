@@ -343,6 +343,7 @@ export default function App() {
             setIsLoginModalOpen(false);
             setIsRegisterModalOpen(true);
           }}
+          landingConfig={landingConfig}
         />
 
         <RegisterModal
@@ -654,6 +655,7 @@ export default function App() {
           setIsLoginModalOpen(false);
           setIsRegisterModalOpen(true);
         }}
+        landingConfig={landingConfig}
       />
 
       <RegisterModal

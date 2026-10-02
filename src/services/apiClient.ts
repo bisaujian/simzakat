@@ -474,9 +474,37 @@ export const authService = {
     waStatus?: 'sent' | 'simulated' | 'error';
   }> {
     initSeedData();
+    const query = usernameOrEmail.trim().toLowerCase();
+
+    // 1. Coba hubungi server VPS secara langsung (menyimpan tiket ke server untuk Super Admin)
+    try {
+      const serverRes = await fetch('/api/auth/request-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernameOrEmail: query }),
+      });
+
+      if (serverRes.ok) {
+        const sData = await serverRes.json();
+        if (sData.success) {
+          if (sData.ticket) {
+            const tickets = getLocalItem<PasswordResetTicket[]>('simzakat_password_reset_tickets', []);
+            const filtered = tickets.filter((t) => t.id !== sData.ticket.id);
+            filtered.unshift(sData.ticket);
+            setLocalItem('simzakat_password_reset_tickets', filtered.slice(0, 50));
+          }
+          return sData;
+        } else {
+          return { success: false, message: sData.message || 'Permintaan pemulihan gagal diproses.' };
+        }
+      }
+    } catch {
+      // Safe fallback ke offline / demo mode
+    }
+
+    // 2. Fallback mode lokal jika server sedang offline
     const users = getLocalItem<(UserAccount & { password?: string })[]>(STORAGE_KEYS.USERS, DEFAULT_USERS);
     const masjids = getLocalItem<MasjidAccount[]>(STORAGE_KEYS.MASJIDS, DEFAULT_MASJIDS);
-    const query = usernameOrEmail.trim().toLowerCase();
     const user = users.find(
       (u) => u.username.toLowerCase() === query || u.email.toLowerCase() === query
     );
@@ -559,6 +587,35 @@ export const authService = {
 
   async resetPassword(payload: ResetPasswordPayload): Promise<{ success: boolean; message?: string }> {
     initSeedData();
+
+    // 1. Coba reset ke backend server VPS terlebih dahulu
+    try {
+      const serverRes = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (serverRes.ok) {
+        const sData = await serverRes.json();
+        if (sData.success) {
+          // Sinkronkan juga ke akun lokal jika ada
+          const users = getLocalItem<(UserAccount & { password?: string })[]>(STORAGE_KEYS.USERS, DEFAULT_USERS);
+          const query = payload.usernameOrEmail.trim().toLowerCase();
+          const uIdx = users.findIndex((u) => u.username.toLowerCase() === query || u.email.toLowerCase() === query);
+          if (uIdx !== -1) {
+            users[uIdx].password = payload.newPassword;
+            setLocalItem(STORAGE_KEYS.USERS, users);
+          }
+          return sData;
+        } else {
+          return { success: false, message: sData.message || 'Kode verifikasi tidak sesuai.' };
+        }
+      }
+    } catch {
+      // Fallback lokal
+    }
+
     const users = getLocalItem<(UserAccount & { password?: string })[]>(STORAGE_KEYS.USERS, DEFAULT_USERS);
     const query = payload.usernameOrEmail.trim().toLowerCase();
     const userIndex = users.findIndex(
@@ -781,6 +838,22 @@ export const ownerService = {
     return getLocalItem<PasswordResetTicket[]>('simzakat_password_reset_tickets', []);
   },
 
+  async fetchResetTicketsFromServer(): Promise<PasswordResetTicket[]> {
+    try {
+      const res = await fetch('/api/platform/reset-tickets');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.tickets)) {
+          setLocalItem('simzakat_password_reset_tickets', data.tickets);
+          return data.tickets;
+        }
+      }
+    } catch {
+      // safe fallback
+    }
+    return this.getResetTickets();
+  },
+
   resolveResetTicket(ticketId: string, customNewPassword?: string): { success: boolean; message: string } {
     initSeedData();
     const tickets = getLocalItem<PasswordResetTicket[]>('simzakat_password_reset_tickets', []);
@@ -799,6 +872,14 @@ export const ownerService = {
 
     tickets[idx] = { ...ticket, status: 'resolved' };
     setLocalItem('simzakat_password_reset_tickets', tickets);
+
+    // Sinkronkan ke server VPS
+    fetch(`/api/platform/reset-tickets/${ticketId}/resolve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customNewPassword }),
+    }).catch(() => {});
+
     return { success: true, message: `Tiket ${ticketId} berhasil diselesaikan oleh Super Admin!` };
   },
 

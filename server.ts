@@ -727,6 +727,29 @@ app.post('/api/auth/request-reset', async (req: Request, res: Response) => {
     ? phone.slice(0, 4) + '****' + phone.slice(-3) 
     : '0812****7766';
 
+  // Simpan Tiket Reset Resmi ke File JSON Server agar tampil di Dashboard Owner
+  const ticketId = `RST-${Date.now().toString(36).toUpperCase()}`;
+  const newTicket = {
+    id: ticketId,
+    userId: foundUser.id,
+    username: foundUser.username,
+    accountName: foundUser.name,
+    masjidId: foundUser.masjid_id || 'masjid-almuhajirin',
+    masjidName: foundUser.masjid_name || 'DKM Masjid Terdaftar',
+    phone,
+    email: foundUser.email || '',
+    maskedContact,
+    code,
+    requestedAt: new Date().toISOString(),
+    expiresAt,
+    status: 'pending',
+  };
+
+  const tickets = readJsonFile<any[]>('reset_tickets.json', []);
+  const filteredTickets = tickets.filter((t: any) => t.userId !== foundUser.id);
+  filteredTickets.unshift(newTicket);
+  writeJsonFile('reset_tickets.json', filteredTickets.slice(0, 50));
+
   // Format pesan OTP resmi WhatsApp
   const otpMessage = `*SIMZAKAT - KODE PEMULIHAN SANDI (OTP)*
 Assalamu'alaikum Warahmatullahi Wabarakatuh,
@@ -752,11 +775,44 @@ _Pusat Layanan SimZakat Indonesia_`;
     masjidName: foundUser.masjid_name || 'DKM Masjid Terdaftar',
     maskedContact,
     phoneRaw: phone,
+    ticketId,
+    ticket: newTicket,
     waStatus: waResult.status,
     message: waResult.status === 'sent'
       ? `Kode OTP 6-digit berhasil dikirimkan secara realtime ke WhatsApp ${maskedContact}. Silakan periksa pesan Anda.`
       : `Kode pemulihan 6-digit telah disiapkan untuk WhatsApp ${maskedContact}.`,
   });
+});
+
+// Platform API: Daftar Semua Tiket Reset Password untuk Super Admin
+app.get('/api/platform/reset-tickets', (_req: Request, res: Response) => {
+  const tickets = readJsonFile<any[]>('reset_tickets.json', []);
+  res.json({ success: true, tickets });
+});
+
+// Platform API: Selesaikan Tiket Reset Password oleh Super Admin
+app.post('/api/platform/reset-tickets/:id/resolve', async (req: Request, res: Response) => {
+  const ticketId = req.params.id;
+  const { customNewPassword } = req.body;
+  const tickets = readJsonFile<any[]>('reset_tickets.json', []);
+  const idx = tickets.findIndex((t: any) => t.id === ticketId);
+
+  if (idx === -1) {
+    return res.status(404).json({ success: false, message: 'Tiket reset tidak ditemukan.' });
+  }
+
+  tickets[idx].status = 'resolved';
+  tickets[idx].resolvedAt = new Date().toISOString();
+
+  if (customNewPassword && customNewPassword.length >= 5) {
+    const userId = tickets[idx].userId;
+    if (isMySQLConnected()) {
+      await safeMySQLQuery('UPDATE users SET password_hash = ? WHERE id = ?', [customNewPassword, userId]);
+    }
+  }
+
+  writeJsonFile('reset_tickets.json', tickets);
+  res.json({ success: true, message: `Tiket ${ticketId} berhasil diselesaikan.` });
 });
 
 // Auth: Konfirmasi Reset Password
@@ -793,9 +849,23 @@ app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
 
   // Update password di MySQL jika database terhubung
   await safeMySQLQuery(
-    'UPDATE users SET password_hash = ? WHERE LOWER(username) = ? OR LOWER(email) = ?',
-    [newPassword, query, query]
+    'UPDATE users SET password = ?, password_hash = ? WHERE LOWER(username) = ? OR LOWER(email) = ?',
+    [newPassword, newPassword, query, query]
   );
+
+  // Update status tiket di reset_tickets.json
+  const tickets = readJsonFile<any[]>('reset_tickets.json', []);
+  let ticketUpdated = false;
+  for (const t of tickets) {
+    if ((t.username?.toLowerCase() === query || t.email?.toLowerCase() === query) && t.status === 'pending') {
+      t.status = 'resolved';
+      t.resolvedAt = new Date().toISOString();
+      ticketUpdated = true;
+    }
+  }
+  if (ticketUpdated) {
+    writeJsonFile('reset_tickets.json', tickets);
+  }
 
   if (resetRecord) {
     serverResetStore.delete(resetRecord.userId);

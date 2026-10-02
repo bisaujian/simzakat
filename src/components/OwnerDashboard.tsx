@@ -190,8 +190,17 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [resetTickets, setResetTickets] = useState<PasswordResetTicket[]>(() => ownerService.getResetTickets());
 
   const refreshResetTickets = () => {
-    setResetTickets(ownerService.getResetTickets());
+    ownerService.fetchResetTicketsFromServer().then((tickets) => {
+      setResetTickets(tickets);
+    }).catch(() => {
+      setResetTickets(ownerService.getResetTickets());
+    });
   };
+
+  // Sync tickets on mount and whenever tab changes
+  React.useEffect(() => {
+    refreshResetTickets();
+  }, [activeTab]);
 
   const handleResolveTicket = (ticketId: string) => {
     const res = ownerService.resolveResetTicket(ticketId);
