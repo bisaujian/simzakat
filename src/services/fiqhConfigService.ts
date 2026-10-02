@@ -183,6 +183,34 @@ export const fiqhConfigService = {
     }
   },
 
+  async fetchServerConfig(): Promise<FiqhPlatformConfig> {
+    try {
+      const res = await fetch('/api/platform/fiqh-config');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.config && typeof data.config === 'object') {
+          const merged: FiqhPlatformConfig = {
+            ...DEFAULT_FIQH_CONFIG,
+            ...data.config,
+            doaAmil: { ...DEFAULT_FIQH_CONFIG.doaAmil, ...(data.config.doaAmil || {}) },
+            niatFitrahSendiri: { ...DEFAULT_FIQH_CONFIG.niatFitrahSendiri, ...(data.config.niatFitrahSendiri || {}) },
+            niatFitrahKeluarga: { ...DEFAULT_FIQH_CONFIG.niatFitrahKeluarga, ...(data.config.niatFitrahKeluarga || {}) },
+            niatZakatMaal: { ...DEFAULT_FIQH_CONFIG.niatZakatMaal, ...(data.config.niatZakatMaal || {}) },
+            doaAmilMendoakan: { ...DEFAULT_FIQH_CONFIG.doaAmilMendoakan, ...(data.config.doaAmilMendoakan || {}) },
+            doaSunnahNabi: { ...DEFAULT_FIQH_CONFIG.doaSunnahNabi, ...(data.config.doaSunnahNabi || {}) },
+            asnafGuidelines: { ...DEFAULT_FIQH_CONFIG.asnafGuidelines, ...(data.config.asnafGuidelines || {}) }
+          };
+          localStorage.setItem(FIQH_CONFIG_STORAGE_KEY, JSON.stringify(merged));
+          window.dispatchEvent(new CustomEvent('fiqh-config-changed', { detail: merged }));
+          return merged;
+        }
+      }
+    } catch {
+      // safe fallback
+    }
+    return this.getConfig();
+  },
+
   saveConfig(cfg: FiqhPlatformConfig, updatedByName: string = 'Super Admin'): void {
     const updated: FiqhPlatformConfig = {
       ...cfg,
@@ -195,6 +223,13 @@ export const fiqhConfigService = {
     } catch (e) {
       console.error('Failed to save fiqh config to localStorage', e);
     }
+    fetch('/api/platform/fiqh-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated),
+    }).catch((err) => {
+      console.warn('[FiqhConfig] Gagal sinkronisasi ke server:', err);
+    });
   },
 
   resetConfig(): FiqhPlatformConfig {
@@ -204,6 +239,11 @@ export const fiqhConfigService = {
     } catch (e) {
       console.error('Failed to reset fiqh config', e);
     }
+    fetch('/api/platform/fiqh-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(DEFAULT_FIQH_CONFIG),
+    }).catch(() => {});
     return DEFAULT_FIQH_CONFIG;
   },
 

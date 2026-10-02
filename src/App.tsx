@@ -27,11 +27,19 @@ import { AppConfig, DistributionRecord, Mustahiq, MuzakkiTransaction, YearlyArch
 import { AuthSession, LoginPayload, MasjidAccount, RegisterMasjidPayload, UserAccount } from './types/auth';
 import { LandingPageConfig } from './types/landing';
 import { authService, ownerService, masjidDataService, landingConfigService, initSeedData } from './services/apiClient';
+import { fiqhConfigService } from './services/fiqhConfigService';
 
 export default function App() {
-  // Initialize seed data on first mount
+  // Initialize seed data and sync with server VPS on first mount
   useEffect(() => {
     initSeedData();
+    landingConfigService.fetchServerConfig().then((cfg) => {
+      setLandingConfig(cfg);
+    });
+    ownerService.syncFromServer().then((ms) => {
+      setOwnerMasjids(ms);
+    });
+    fiqhConfigService.fetchServerConfig();
   }, []);
 
   // Landing Page & Infaq dynamic config
@@ -394,7 +402,10 @@ export default function App() {
           onLogout={handleLogout}
           onGoToLanding={() => setViewMode('landing')}
           landingConfig={landingConfig}
-          onUpdateLandingConfig={(newCfg) => setLandingConfig(newCfg)}
+          onUpdateLandingConfig={(newCfg) => {
+            setLandingConfig(newCfg);
+            landingConfigService.saveConfig(newCfg);
+          }}
         />
 
         <DonationModal

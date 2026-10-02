@@ -1,19 +1,50 @@
 -- =============================================================================
 -- SimZakat - Sistem Informasi Manajemen Zakat & Mustahiq Modern Berbasis Syariat
--- Database Schema for MySQL 8.0+ / MariaDB 10.5+
+-- File: simzakat_database_phpmyadmin.sql
+-- Kompatibel: phpMyAdmin 4.x / 5.x+, MySQL 5.7 / 8.0+, MariaDB 10.3+
 -- Engine: InnoDB | Charset: utf8mb4 | Collation: utf8mb4_unicode_ci
 -- =============================================================================
+--
+-- PANDUAN CARA IMPORT DI PHPMYADMIN:
+-- 1. Buka phpMyAdmin di cPanel / VPS / Hosting Anda.
+-- 2. Buat database baru (contoh: simzakat_db atau username_simzakat) jika belum ada.
+-- 3. KLIK NAMA DATABASE TERSEBUT di menu sebelah kiri.
+-- 4. Klik tab "Import" (Impor) di menu atas.
+-- 5. Klik "Choose File" dan pilih file: simzakat_database_phpmyadmin.sql ini.
+-- 6. Klik tombol "Go" / "Kirim" di bagian bawah.
+-- 7. Selesai! Seluruh tabel dan data awal resmi langsung siap digunakan.
+-- =============================================================================
 
-CREATE DATABASE IF NOT EXISTS `simzakat_db` 
-  CHARACTER SET utf8mb4 
-  COLLATE utf8mb4_unicode_ci;
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+SET AUTOCOMMIT = 0;
+START TRANSACTION;
+SET time_zone = "+07:00";
 
-USE `simzakat_db`;
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+-- Matikan pengecekan foreign key sementara saat impor
+SET FOREIGN_KEY_CHECKS = 0;
 
 -- -----------------------------------------------------------------------------
--- 1. Table: masjids (Daftar Lembaga / Masjid / DKM Terdaftar)
+-- Hapus tabel lama jika sudah ada (mencegah error tabel duplikat saat re-import)
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `masjids` (
+DROP TABLE IF EXISTS `activity_logs`;
+DROP TABLE IF EXISTS `password_resets`;
+DROP TABLE IF EXISTS `yearly_archives`;
+DROP TABLE IF EXISTS `distribution_records`;
+DROP TABLE IF EXISTS `mustahiqs`;
+DROP TABLE IF EXISTS `muzakki_transactions`;
+DROP TABLE IF EXISTS `app_configs`;
+DROP TABLE IF EXISTS `users`;
+DROP TABLE IF EXISTS `masjids`;
+
+-- -----------------------------------------------------------------------------
+-- 1. Table: masjids (Lembaga / Masjid / DKM Terdaftar)
+-- -----------------------------------------------------------------------------
+CREATE TABLE `masjids` (
   `id` VARCHAR(64) NOT NULL PRIMARY KEY,
   `name` VARCHAR(150) NOT NULL,
   `slug` VARCHAR(150) NOT NULL UNIQUE,
@@ -22,7 +53,7 @@ CREATE TABLE IF NOT EXISTS `masjids` (
   `province` VARCHAR(100) DEFAULT NULL,
   `contact_phone` VARCHAR(30) NOT NULL,
   `email` VARCHAR(100) DEFAULT NULL,
-  `lead_name` VARCHAR(120) NOT NULL, -- Nama Ketua DKM / Kepala Amil
+  `lead_name` VARCHAR(120) NOT NULL,
   `status` ENUM('active', 'pending_verification', 'suspended') NOT NULL DEFAULT 'active',
   `hijri_year` VARCHAR(30) NOT NULL DEFAULT '1447 H',
   `masehi_year` VARCHAR(30) NOT NULL DEFAULT '2026 M',
@@ -33,11 +64,11 @@ CREATE TABLE IF NOT EXISTS `masjids` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
--- 2. Table: users (Akun Pengguna: Owner, Admin DKM, & Petugas Amil)
+-- 2. Table: users (Owner, Admin DKM, & Petugas Amil)
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `users` (
+CREATE TABLE `users` (
   `id` VARCHAR(64) NOT NULL PRIMARY KEY,
-  `masjid_id` VARCHAR(64) DEFAULT NULL, -- NULL jika Super Admin / Owner
+  `masjid_id` VARCHAR(64) DEFAULT NULL,
   `name` VARCHAR(120) NOT NULL,
   `username` VARCHAR(60) NOT NULL UNIQUE,
   `email` VARCHAR(120) NOT NULL UNIQUE,
@@ -57,7 +88,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 -- -----------------------------------------------------------------------------
 -- 3. Table: app_configs (Pengaturan Harga Beras, SK Kemenag, & Panitia Masjid)
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `app_configs` (
+CREATE TABLE `app_configs` (
   `id` VARCHAR(64) NOT NULL PRIMARY KEY,
   `masjid_id` VARCHAR(64) NOT NULL UNIQUE,
   `organization_name` VARCHAR(150) NOT NULL,
@@ -86,9 +117,9 @@ CREATE TABLE IF NOT EXISTS `app_configs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
--- 4. Table: muzakki_transactions (Pencatatan Penerimaan Zakat, Infaq, Fidyah)
+-- 4. Table: muzakki_transactions (Transaksi Zakat Fitrah, Maal, Infaq, Fidyah)
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `muzakki_transactions` (
+CREATE TABLE `muzakki_transactions` (
   `id` VARCHAR(64) NOT NULL PRIMARY KEY,
   `masjid_id` VARCHAR(64) NOT NULL,
   `receipt_number` VARCHAR(60) NOT NULL,
@@ -122,7 +153,7 @@ CREATE TABLE IF NOT EXISTS `muzakki_transactions` (
 -- -----------------------------------------------------------------------------
 -- 5. Table: mustahiqs (Database Mustahiq & 8 Golongan Asnaf)
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `mustahiqs` (
+CREATE TABLE `mustahiqs` (
   `id` VARCHAR(64) NOT NULL PRIMARY KEY,
   `masjid_id` VARCHAR(64) NOT NULL,
   `name` VARCHAR(150) NOT NULL,
@@ -147,9 +178,9 @@ CREATE TABLE IF NOT EXISTS `mustahiqs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
--- 6. Table: distribution_records (Pencatatan Penyaluran Hak Zakat ke Mustahiq)
+-- 6. Table: distribution_records (Pencatatan Penyaluran Zakat ke Mustahiq)
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `distribution_records` (
+CREATE TABLE `distribution_records` (
   `id` VARCHAR(64) NOT NULL PRIMARY KEY,
   `masjid_id` VARCHAR(64) NOT NULL,
   `date_str` DATE NOT NULL,
@@ -173,7 +204,7 @@ CREATE TABLE IF NOT EXISTS `distribution_records` (
 -- -----------------------------------------------------------------------------
 -- 7. Table: yearly_archives (Arsip Tutup Buku LPJ Tahunan Multi-Tahun)
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `yearly_archives` (
+CREATE TABLE `yearly_archives` (
   `id` VARCHAR(64) NOT NULL PRIMARY KEY,
   `masjid_id` VARCHAR(64) NOT NULL,
   `hijri_year` VARCHAR(30) NOT NULL,
@@ -202,7 +233,7 @@ CREATE TABLE IF NOT EXISTS `yearly_archives` (
 -- -----------------------------------------------------------------------------
 -- 8. Table: activity_logs (Audit Trail Aktivitas Amil)
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `activity_logs` (
+CREATE TABLE `activity_logs` (
   `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
   `masjid_id` VARCHAR(64) DEFAULT NULL,
   `user_id` VARCHAR(64) DEFAULT NULL,
@@ -215,9 +246,9 @@ CREATE TABLE IF NOT EXISTS `activity_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
--- 8. Table: password_resets (Pengelolaan Token Pemulihan Sandi)
+-- 9. Table: password_resets (Pengelolaan Token Pemulihan Sandi)
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `password_resets` (
+CREATE TABLE `password_resets` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `user_id` VARCHAR(64) NOT NULL,
   `token_code` VARCHAR(64) NOT NULL,
@@ -230,25 +261,21 @@ CREATE TABLE IF NOT EXISTS `password_resets` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- SEED DATA AWAL (Default Pengguna & Masjid Pertama untuk Uji Coba)
+-- SEED DATA AWAL (Data Default Resmi Siap Pakai)
 -- =============================================================================
 
--- 1. Masjid Percontohan
-INSERT INTO `masjids` (`id`, `name`, `slug`, `address`, `city`, `province`, `contact_phone`, `email`, `lead_name`, `status`, `hijri_year`, `masehi_year`) 
-VALUES 
-('masjid-almuhajirin', 'Masjid Raya Al-Muhajirin', 'masjid-raya-al-muhajirin', 'Jl. Barokah No. 12 Kompleks Harmoni Baru', 'Jakarta Selatan', 'DKI Jakarta', '081299887766', 'almuhajirin@simzakat.id', 'Ustadz Ahmad Fauzi, S.Pd.I', 'active', '1447 H', '2026 M'),
-('masjid-arraudhah', 'Masjid Jami Ar-Raudhah', 'masjid-jami-ar-raudhah', 'Jl. Melati Raya No. 45', 'Bandung', 'Jawa Barat', '081377889900', 'arraudhah@simzakat.id', 'Drs. H. Syamsuddin', 'active', '1447 H', '2026 M')
-ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);
+-- 1. Insert Masjid Percontohan
+INSERT INTO `masjids` (`id`, `name`, `slug`, `address`, `city`, `province`, `contact_phone`, `email`, `lead_name`, `status`, `hijri_year`, `masehi_year`) VALUES
+('masjid-almuhajirin', 'Masjid Raya Al-Muhajirin', 'masjid-raya-al-muhajirin', 'Jl. Barokah No. 12 Kompleks Harmoni Baru, RT 03/RW 08', 'Jakarta Selatan', 'DKI Jakarta', '081299887766', 'almuhajirin@simzakat.id', 'Ustadz Ahmad Fauzi, S.Pd.I', 'active', '1447 H', '2026 M'),
+('masjid-arraudhah', 'Masjid Jami Ar-Raudhah', 'masjid-jami-ar-raudhah', 'Jl. Melati Raya No. 45', 'Bandung', 'Jawa Barat', '081377889900', 'arraudhah@simzakat.id', 'Drs. H. Syamsuddin', 'active', '1447 H', '2026 M');
 
--- 2. Pengguna: Owner / Super Admin & Admin DKM
-INSERT INTO `users` (`id`, `masjid_id`, `name`, `username`, `email`, `phone`, `password_hash`, `role`, `is_active`) 
-VALUES 
+-- 2. Insert User Login (Password: owner123 / masjid123 / amil123)
+INSERT INTO `users` (`id`, `masjid_id`, `name`, `username`, `email`, `phone`, `password_hash`, `role`, `is_active`) VALUES
 ('user-owner', NULL, 'Super Admin SimZakat', 'owner', 'owner@simzakat.id', '081100001111', 'owner123', 'owner', 1),
 ('user-dkm-almuhajirin', 'masjid-almuhajirin', 'Ustadz Ahmad Fauzi (Ketua DKM)', 'admin_muhajirin', 'dkm@almuhajirin.id', '081299887766', 'masjid123', 'admin_dkm', 1),
-('user-amil-almuhajirin', 'masjid-almuhajirin', 'Hadi Sucipto (Amil Kasir Posko)', 'amil_hadi', 'hadi@almuhajirin.id', '081233445566', 'amil123', 'petugas_amil', 1)
-ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);
+('user-amil-almuhajirin', 'masjid-almuhajirin', 'Hadi Sucipto (Amil Kasir Posko)', 'amil_hadi', 'hadi@almuhajirin.id', '081233445566', 'amil123', 'petugas_amil', 1);
 
--- 3. Konfigurasi Awal Masjid Al-Muhajirin
+-- 3. Insert Pengaturan Lengkap Masjid Al-Muhajirin
 INSERT INTO `app_configs` (
   `id`, `masjid_id`, `organization_name`, `sub_title`, `hijri_year`, `masehi_year`, 
   `address`, `phone`, `head_amil`, `treasurer_name`, 
@@ -270,7 +297,7 @@ INSERT INTO `app_configs` (
   'H. Rahmat Hidayat, SE',
   2.80,
   '[2.5, 2.7, 2.8, 3.0, 3.5]',
-  'SK Bersama Kemenag & BAZNAS No. 1447 H / 2026 M',
+  'SK Bersama Kemenag & BAZNAS RI No. 1447 H / 2026 M',
   '[{"id":"tier-1","name":"Kategori I (Beras Premium: Rojolele/Mentik/Pandan Wangi)","riceType":"Pandan Wangi, Mentik Wangi, Rojolele","pricePerSoulRp":55000,"description":"Standar beras konsumsi harian keluarga kelas premium"},{"id":"tier-2","name":"Kategori II (Beras Medium Plus: Setra Ramos/IR-64 Super)","riceType":"Setra Ramos, IR 64 Premium","pricePerSoulRp":45000,"description":"Standar umum yang paling banyak dikonsumsi jamaah"},{"id":"tier-3","name":"Kategori III (Beras Standar: IR-64 Medium/Bulog Premium)","riceType":"IR 64 Medium, SPHP Premium","pricePerSoulRp":38000,"description":"Standar minimal kecukupan konsumsi masyarakat"},{"id":"tier-custom","name":"Kategori Khusus / Beras Organik Sultan","riceType":"Beras Merah Organik / Basmati / Beras Khusus","pricePerSoulRp":65000,"description":"Pilihan muzakki dengan konsumsi beras varietas khusus"}]',
   45000.00,
   1450000.00,
@@ -280,4 +307,97 @@ INSERT INTO `app_configs` (
   2500000.00,
   14000000.00,
   30000.00
-) ON DUPLICATE KEY UPDATE `organization_name`=VALUES(`organization_name`);
+);
+
+-- 4. Insert Data Mustahiq Awal (8 Asnaf)
+INSERT INTO `mustahiqs` (`id`, `masjid_id`, `name`, `nik`, `kk_number`, `phone`, `address`, `rt_rw`, `asnaf`, `family_members_count`, `priority`, `status`, `notes`, `total_rice_received_kg`, `total_money_received_rp`) VALUES
+('mst-1', 'masjid-almuhajirin', 'Mbah Sutini', '3174019901500001', '3174019901500000', '081233445501', 'Gang Musholla No. 4B', 'RT 01 / RW 08', 'fakir', 1, 'sangat_mendesak', 'aktif', 'Lansia sebatang kara, tidak memiliki mata pencaharian tetap.', 5.00, 200000.00),
+('mst-2', 'masjid-almuhajirin', 'Pak Joko Santoso', '3174018805720002', '3174018805720000', '081233445502', 'Jl. Melati II No. 15', 'RT 02 / RW 08', 'miskin', 4, 'sangat_mendesak', 'aktif', 'Buruh harian lepas, menanggung 3 orang anak sekolah.', 10.00, 300000.00),
+('mst-3', 'masjid-almuhajirin', 'Ibu Aminah', '3174017709800003', '3174017709800000', '081233445503', 'Gang Sawo No. 8', 'RT 03 / RW 08', 'gharimin', 3, 'mendesak', 'aktif', 'Janda terlilit utang biaya pengobatan alm. suami di RS.', 5.00, 500000.00),
+('mst-4', 'masjid-almuhajirin', 'Ustadz Danu Setiawan', '3174018503850004', '3174018503850000', '081233445504', 'Kompleks Masjid Blok D', 'RT 03 / RW 08', 'fisabilillah', 3, 'reguler', 'aktif', 'Guru ngaji TPQ anak-anak masjid & marbot.', 10.00, 400000.00);
+
+-- 5. Insert Contoh Transaksi Muzakki Pertama (dengan Infaq Suka Rela)
+INSERT INTO `muzakki_transactions` (
+  `id`, `masjid_id`, `receipt_number`, `timestamp_iso`, `date_str`, 
+  `name`, `phone`, `address`, `rt_rw`, `category`, 
+  `fitrah_detail_json`, `voluntary_infaq_rp`, `voluntary_infaq_allocation`, 
+  `payment_method`, `amil_name`, `notes`, `total_money_rp`, `total_rice_kg`
+) VALUES
+(
+  'tx-sample-01',
+  'masjid-almuhajirin',
+  'ZK-1447-0001',
+  '2026-03-20T10:15:00.000Z',
+  '2026-03-20',
+  'H. Hendra Gunawan',
+  '081299881122',
+  'Jl. Flamboyan No. 10',
+  'RT 01 / RW 08',
+  'fitrah',
+  '{"unit":"uang","payerCount":4,"ratePerPerson":45000,"familyMembers":["H. Hendra","Hj. Ratna","Ahmad Zaki","Aisyah Putri"],"skKemenagTierName":"Kategori II (Beras Medium Plus)"}',
+  50000.00,
+  'operasional_masjid',
+  'tunai',
+  'Hadi Sucipto',
+  'Titipan doa berkah untuk sekeluarga',
+  230000.00,
+  0.00
+),
+(
+  'tx-sample-02',
+  'masjid-almuhajirin',
+  'ZK-1447-0002',
+  '2026-03-20T11:00:00.000Z',
+  '2026-03-20',
+  'Ibu Hj. Suryani',
+  '081388776655',
+  'Jl. Mawar No. 3',
+  'RT 02 / RW 08',
+  'fitrah',
+  '{"unit":"beras","payerCount":2,"riceWeightPerSoulKg":2.8,"familyMembers":["Hj. Suryani","Fajar Siddiq"]}',
+  20000.00,
+  'sosial_yatim',
+  'tunai',
+  'Hadi Sucipto',
+  'Beras Pandan Wangi super',
+  20000.00,
+  5.60
+);
+
+-- 6. Insert Contoh Penyaluran Pertama
+INSERT INTO `distribution_records` (
+  `id`, `masjid_id`, `date_str`, `timestamp_iso`, `mustahiq_id`, `mustahiq_name`, 
+  `asnaf`, `rt_rw`, `rice_kg`, `money_rp`, `package_description`, `distributor_amil`, `notes`
+) VALUES
+(
+  'dist-sample-01',
+  'masjid-almuhajirin',
+  '2026-03-21',
+  '2026-03-21T09:00:00.000Z',
+  'mst-1',
+  'Mbah Sutini',
+  'fakir',
+  'RT 01 / RW 08',
+  5.00,
+  200000.00,
+  'Paket Sembako Beras 5 Kg + Santunan Uang Tunai Rp 200.000',
+  'Hadi Sucipto',
+  'Diserahkan langsung ke kediaman mustahiq'
+);
+
+-- Kembalikan pengecekan foreign key
+SET FOREIGN_KEY_CHECKS = 1;
+
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+-- =============================================================================
+-- SELESAI: Database SimZakat telah berhasil di-import ke phpMyAdmin!
+-- Akun Login Bawaan:
+-- - Owner / Super Admin : username: owner            | password: owner123
+-- - Admin DKM           : username: admin_muhajirin  | password: masjid123
+-- - Petugas Amil Kasir  : username: amil_hadi        | password: amil123
+-- =============================================================================

@@ -20,7 +20,8 @@ import {
   Sparkles,
   Eye,
   Printer,
-  Clock
+  Clock,
+  Database
 } from 'lucide-react';
 import { AppConfig, DistributionRecord, Mustahiq, MuzakkiTransaction, SkKemenagTier, YearlyArchiveRecord } from '../types/zakat';
 import { MasjidAccount } from '../types/auth';
@@ -254,6 +255,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     a.download = `Backup_SimZakat_${formData.organizationName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadMySql = () => {
+    const link = document.createElement('a');
+    link.href = '/simzakat_database_phpmyadmin.sql';
+    link.download = `simzakat_database_phpmyadmin_${new Date().toISOString().split('T')[0]}.sql`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleRestoreJson = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -871,16 +881,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <button
+            onClick={handleDownloadMySql}
+            className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs transition cursor-pointer"
+            title="Unduh skrip database MySQL yang siap di-upload ke phpMyAdmin (cPanel/VPS/Hosting)"
+          >
+            <Database className="w-4 h-4 text-emerald-200" />
+            <span>Unduh Database MySQL (.sql) phpMyAdmin</span>
+          </button>
+
+          <button
             onClick={handleBackupJson}
             className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs transition cursor-pointer"
+            title="Cadangan file JSON browser"
           >
             <Download className="w-4 h-4 text-emerald-400" />
-            <span>Unduh Cadangan Lengkap (JSON)</span>
+            <span>Unduh Cadangan (JSON)</span>
           </button>
 
           <label className="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs transition cursor-pointer">
             <Upload className="w-4 h-4 text-slate-500" />
-            <span>Pulihkan Dari File JSON</span>
+            <span>Pulihkan Dari JSON</span>
             <input
               type="file"
               accept=".json"
@@ -894,7 +914,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ml-auto cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset ke Contoh Bawaan</span>
+            <span>Reset ke Contoh</span>
           </button>
         </div>
       </div>

@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import type { Request, Response } from 'express';
 import path from 'path';
@@ -103,6 +106,185 @@ app.use(express.json());
 // -----------------------------------------------------------------------------
 // API ROUTES
 // -----------------------------------------------------------------------------
+
+// File-based Storage Persistence Helper untuk Platform Owner & CMS
+const DATA_DIR = path.resolve(process.cwd(), 'data');
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+function readJsonFile<T>(filename: string, fallback: T): T {
+  try {
+    const filePath = path.resolve(DATA_DIR, filename);
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return JSON.parse(content) as T;
+    }
+  } catch (err) {
+    console.warn(`[Storage] Gagal membaca ${filename}:`, err);
+  }
+  return fallback;
+}
+
+function writeJsonFile<T>(filename: string, data: T): boolean {
+  try {
+    const filePath = path.resolve(DATA_DIR, filename);
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    return true;
+  } catch (err) {
+    console.error(`[Storage] Gagal menulis ${filename}:`, err);
+    return false;
+  }
+}
+
+// 1. Landing Page CMS Configuration Endpoints
+app.get('/api/platform/landing-config', async (_req: Request, res: Response) => {
+  const config = readJsonFile('landing_config.json', null);
+  res.json({ success: true, config });
+});
+
+app.post('/api/platform/landing-config', async (req: Request, res: Response) => {
+  const newConfig = req.body;
+  if (!newConfig || typeof newConfig !== 'object') {
+    return res.status(400).json({ success: false, message: 'Data konfigurasi tidak valid' });
+  }
+  const saved = writeJsonFile('landing_config.json', newConfig);
+  res.json({ 
+    success: saved, 
+    config: newConfig,
+    message: 'Alhamdulillah, konfigurasi Landing Page berhasil disimpan permanen ke server VPS!' 
+  });
+});
+
+// 2. Fiqh & Doa Syar'i Guidelines Endpoints
+app.get('/api/platform/fiqh-config', async (_req: Request, res: Response) => {
+  const config = readJsonFile('fiqh_config.json', null);
+  res.json({ success: true, config });
+});
+
+app.post('/api/platform/fiqh-config', async (req: Request, res: Response) => {
+  const newConfig = req.body;
+  if (!newConfig || typeof newConfig !== 'object') {
+    return res.status(400).json({ success: false, message: 'Data fiqh tidak valid' });
+  }
+  const saved = writeJsonFile('fiqh_config.json', newConfig);
+  res.json({ 
+    success: saved, 
+    config: newConfig,
+    message: 'Panduan fiqh zakat & doa amil berhasil disimpan permanen ke server VPS!' 
+  });
+});
+
+// 3. Masjids / Lembaga Platform Management Endpoints
+app.get('/api/platform/masjids', async (_req: Request, res: Response) => {
+  if (isMySQLConnected()) {
+    const rows = await safeMySQLQuery('SELECT * FROM masjids ORDER BY created_at DESC');
+    if (rows && rows.length > 0) {
+      const mapped = rows.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        slug: r.slug,
+        address: r.address,
+        city: r.city,
+        province: r.province,
+        contactPhone: r.contact_phone,
+        email: r.email,
+        leadName: r.lead_name,
+        status: r.status,
+        hijriYear: r.hijri_year,
+        masehiYear: r.masehi_year,
+        createdAt: r.created_at,
+      }));
+      return res.json({ success: true, masjids: mapped });
+    }
+  }
+
+  const masjids = readJsonFile('masjids.json', null);
+  res.json({ success: true, masjids });
+});
+
+app.post('/api/platform/masjids/status', async (req: Request, res: Response) => {
+  const { masjidId, status } = req.body;
+  if (!masjidId || !status) {
+    return res.status(400).json({ success: false, message: 'Parameter masjidId dan status wajib diisi' });
+  }
+
+  if (isMySQLConnected()) {
+    await safeMySQLQuery('UPDATE masjids SET status = ? WHERE id = ?', [status, masjidId]);
+  }
+
+  const masjids = readJsonFile<any[]>('masjids.json', []);
+  const idx = masjids.findIndex((m: any) => m.id === masjidId);
+  if (idx !== -1) {
+    masjids[idx].status = status;
+  } else {
+    masjids.push({ id: masjidId, status });
+  }
+  writeJsonFile('masjids.json', masjids);
+
+  res.json({ success: true, message: `Status lembaga berhasil diperbarui menjadi ${status}` });
+});
+
+app.put('/api/platform/masjids/:id', async (req: Request, res: Response) => {
+  const masjidId = req.params.id;
+  const updated = req.body;
+  if (!masjidId || !updated) {
+    return res.status(400).json({ success: false, message: 'Data pembaruan tidak valid' });
+  }
+
+  if (isMySQLConnected()) {
+    await safeMySQLQuery(
+      'UPDATE masjids SET name = COALESCE(?, name), lead_name = COALESCE(?, lead_name), contact_phone = COALESCE(?, contact_phone), email = COALESCE(?, email), city = COALESCE(?, city), province = COALESCE(?, province), address = COALESCE(?, address), status = COALESCE(?, status) WHERE id = ?',
+      [updated.name, updated.leadName, updated.contactPhone, updated.email, updated.city, updated.province, updated.address, updated.status, masjidId]
+    );
+  }
+
+  const masjids = readJsonFile<any[]>('masjids.json', []);
+  const idx = masjids.findIndex((m: any) => m.id === masjidId);
+  if (idx !== -1) {
+    masjids[idx] = { ...masjids[idx], ...updated };
+  } else {
+    masjids.push({ id: masjidId, ...updated });
+  }
+  writeJsonFile('masjids.json', masjids);
+
+  res.json({ success: true, message: 'Data lembaga berhasil disimpan permanen di server.' });
+});
+
+app.post('/api/platform/masjids', async (req: Request, res: Response) => {
+  const newM = req.body;
+  if (!newM || !newM.name) {
+    return res.status(400).json({ success: false, message: 'Nama lembaga wajib diisi' });
+  }
+  const id = newM.id || `masjid-${Date.now().toString(36)}`;
+  const slug = (newM.slug || newM.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/^-|-$/g, '');
+
+  if (isMySQLConnected()) {
+    await safeMySQLQuery(
+      'INSERT INTO masjids (id, name, slug, address, city, province, contact_phone, email, lead_name, status, hijri_year, masehi_year) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, newM.name, slug, newM.address || '', newM.city || 'Indonesia', newM.province || '', newM.contactPhone || '', newM.email || '', newM.leadName || '', newM.status || 'active', newM.hijriYear || '1447 H', newM.masehiYear || '2026 M']
+    );
+  }
+
+  const masjids = readJsonFile<any[]>('masjids.json', []);
+  const created = { ...newM, id, slug, createdAt: new Date().toISOString() };
+  masjids.push(created);
+  writeJsonFile('masjids.json', masjids);
+
+  res.json({ success: true, masjid: created, message: 'Lembaga baru berhasil didaftarkan di server.' });
+});
+
+app.delete('/api/platform/masjids/:id', async (req: Request, res: Response) => {
+  const masjidId = req.params.id;
+  if (isMySQLConnected()) {
+    await safeMySQLQuery('DELETE FROM masjids WHERE id = ?', [masjidId]);
+  }
+  const masjids = readJsonFile<any[]>('masjids.json', []);
+  const filtered = masjids.filter((m: any) => m.id !== masjidId);
+  writeJsonFile('masjids.json', filtered);
+
+  res.json({ success: true, message: 'Lembaga berhasil dihapus permanen dari server.' });
+});
 
 // Health check & Database Status
 app.get('/api/health', async (_req: Request, res: Response) => {
@@ -628,20 +810,40 @@ app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
 // VITE OR STATIC ASSETS MIDDLEWARE
 // -----------------------------------------------------------------------------
 async function startServer() {
-  const isProd = process.env.NODE_ENV === 'production';
+  const distPath = path.resolve(process.cwd(), 'dist');
+  const hasDist = fs.existsSync(path.resolve(distPath, 'index.html'));
+  const isProd = process.env.NODE_ENV === 'production' || hasDist;
 
-  if (!isProd) {
+  if (isProd && hasDist) {
+    console.log('[SimZakat Server] Menjalankan mode PRODUKSI menggunakan berkas bundle:', distPath);
+    app.use(express.static(distPath));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.resolve(distPath, 'index.html'));
+    });
+  } else {
+    console.log('[SimZakat Server] Menjalankan mode DEVELOPMENT (Vite Live Compiler)...');
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.resolve(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.resolve(distPath, 'index.html'));
+
+    // Handler fallback agar root dan SPA selalu merender modul JavaScript yang valid
+    app.use('*', async (req, res, next) => {
+      const url = req.originalUrl;
+      try {
+        const indexPath = path.resolve(process.cwd(), 'index.html');
+        if (!fs.existsSync(indexPath)) {
+          return res.status(404).send('index.html tidak ditemukan');
+        }
+        let template = fs.readFileSync(indexPath, 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e) {
+        vite.ssrFixStacktrace(e as Error);
+        next(e);
+      }
     });
   }
 

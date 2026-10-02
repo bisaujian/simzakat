@@ -630,6 +630,35 @@ export const ownerService = {
     });
   },
 
+  async syncFromServer(): Promise<MasjidAccount[]> {
+    try {
+      const res = await fetch('/api/platform/masjids');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.masjids) && data.masjids.length > 0) {
+          const currentLocal = getLocalItem<MasjidAccount[]>(STORAGE_KEYS.MASJIDS, DEFAULT_MASJIDS);
+          const merged = data.masjids.map((sm: any) => {
+            const loc = currentLocal.find((l) => l.id === sm.id);
+            return {
+              ...sm,
+              totalTransactions: loc?.totalTransactions || sm.totalTransactions || 0,
+              totalMuzakkiSouls: loc?.totalMuzakkiSouls || sm.totalMuzakkiSouls || 0,
+              totalFitrahRiceKg: loc?.totalFitrahRiceKg || sm.totalFitrahRiceKg || 0,
+              totalFitrahCashRp: loc?.totalFitrahCashRp || sm.totalFitrahCashRp || 0,
+              totalMaalRp: loc?.totalMaalRp || sm.totalMaalRp || 0,
+              totalMustahiqCount: loc?.totalMustahiqCount || sm.totalMustahiqCount || 0,
+            };
+          });
+          setLocalItem(STORAGE_KEYS.MASJIDS, merged);
+          return merged;
+        }
+      }
+    } catch {
+      // safe fallback
+    }
+    return this.getAllMasjids();
+  },
+
   updateMasjidStatus(masjidId: string, newStatus: 'active' | 'pending_verification' | 'suspended'): boolean {
     const masjids = getLocalItem<MasjidAccount[]>(STORAGE_KEYS.MASJIDS, DEFAULT_MASJIDS);
     const idx = masjids.findIndex((m) => m.id === masjidId);
@@ -639,6 +668,11 @@ export const ownerService = {
         status: newStatus,
       };
       setLocalItem(STORAGE_KEYS.MASJIDS, masjids);
+      fetch('/api/platform/masjids/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ masjidId, status: newStatus }),
+      }).catch((e) => console.warn('Gagal sinkron status masjid ke server:', e));
       return true;
     }
     return false;
@@ -650,6 +684,11 @@ export const ownerService = {
     if (idx !== -1) {
       masjids[idx] = { ...masjids[idx], ...updated };
       setLocalItem(STORAGE_KEYS.MASJIDS, masjids);
+      fetch(`/api/platform/masjids/${updated.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      }).catch((e) => console.warn('Gagal sinkron pembaruan masjid ke server:', e));
       return true;
     }
     return false;
@@ -671,6 +710,11 @@ export const ownerService = {
     };
     masjids.push(created);
     setLocalItem(STORAGE_KEYS.MASJIDS, masjids);
+    fetch('/api/platform/masjids', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(created),
+    }).catch((e) => console.warn('Gagal mendaftarkan masjid ke server:', e));
     return created;
   },
 
@@ -687,6 +731,9 @@ export const ownerService = {
       } catch {
         // safe ignore
       }
+      fetch(`/api/platform/masjids/${masjidId}`, {
+        method: 'DELETE',
+      }).catch(() => {});
       return true;
     }
     return false;
@@ -962,12 +1009,41 @@ export const landingConfigService = {
     return { ...DEFAULT_LANDING_CONFIG, ...stored };
   },
 
+  async fetchServerConfig(): Promise<LandingPageConfig> {
+    try {
+      const res = await fetch('/api/platform/landing-config');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.config && typeof data.config === 'object') {
+          const merged = { ...DEFAULT_LANDING_CONFIG, ...data.config };
+          setLocalItem(STORAGE_KEYS.LANDING_CONFIG, merged);
+          return merged;
+        }
+      }
+    } catch {
+      // safe fallback
+    }
+    return this.getConfig();
+  },
+
   saveConfig(cfg: LandingPageConfig): void {
     setLocalItem(STORAGE_KEYS.LANDING_CONFIG, cfg);
+    fetch('/api/platform/landing-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg),
+    }).catch((err) => {
+      console.warn('[LandingConfig] Gagal sinkronisasi ke server:', err);
+    });
   },
 
   resetConfig(): LandingPageConfig {
     setLocalItem(STORAGE_KEYS.LANDING_CONFIG, DEFAULT_LANDING_CONFIG);
+    fetch('/api/platform/landing-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(DEFAULT_LANDING_CONFIG),
+    }).catch(() => {});
     return DEFAULT_LANDING_CONFIG;
   },
 };

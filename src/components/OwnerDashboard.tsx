@@ -350,12 +350,20 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [saveSuccessNotice, setSaveSuccessNotice] = useState<boolean>(false);
   const [landingSubTab, setLandingSubTab] = useState<'hero' | 'simulator' | 'features' | 'comparison' | 'faqs' | 'banners_infaq'>('hero');
 
-  const handleSaveLandingConfig = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Keep landingForm synchronized when server landingConfig arrives or updates
+  React.useEffect(() => {
+    if (landingConfig) {
+      setLandingForm(landingConfig);
+    }
+  }, [landingConfig]);
+
+  const handleSaveLandingConfig = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     landingConfigService.saveConfig(landingForm);
     onUpdateLandingConfig?.(landingForm);
     setSaveSuccessNotice(true);
-    setTimeout(() => setSaveSuccessNotice(false), 4000);
+    showToast('Alhamdulillah! Perubahan Landing Page berhasil disimpan permanen ke server VPS.', 'success');
+    setTimeout(() => setSaveSuccessNotice(false), 5000);
   };
 
   const handleResetLandingConfig = () => {
@@ -364,6 +372,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       landingConfigService.saveConfig(DEFAULT_LANDING_CONFIG);
       onUpdateLandingConfig?.(DEFAULT_LANDING_CONFIG);
       setSaveSuccessNotice(true);
+      showToast('Pengaturan landing page dikembalikan ke standar awal.', 'info');
       setTimeout(() => setSaveSuccessNotice(false), 4000);
     }
   };
@@ -1258,6 +1267,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveLandingConfig()}
+                  className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shadow-md shadow-purple-600/30 transition flex items-center gap-1.5 cursor-pointer"
+                  title="Simpan seluruh perubahan ke server VPS & MySQL"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Simpan Perubahan</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleResetLandingConfig}
