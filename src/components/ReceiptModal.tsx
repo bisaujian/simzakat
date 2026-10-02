@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { AppConfig, MuzakkiTransaction } from '../types/zakat';
 import { formatDateIndo, formatDateTimeIndo, formatKg, formatRupiah, DOA_COLLECTION } from '../utils/helpers';
-import { printElementById, exportToPdf, openPrintTab, downloadHtmlFile } from '../utils/printService';
+import { printElementById, exportToPdf, openPrintTab, downloadHtmlFile, PrintServiceOptions } from '../utils/printService';
 
 interface ReceiptModalProps {
   transaction: MuzakkiTransaction | null;
@@ -42,6 +42,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   const [receiptFormat, setReceiptFormat] = useState<'compact' | 'thermal' | 'standard'>('compact');
   // Sub-option for compact: 'double' (2 rangkap dlm 1 lembar A4 dgn garis potong) or 'single' (1 slip 1/2 A4)
   const [compactMode, setCompactMode] = useState<'double' | 'single'>('double');
+  // Sub-option for thermal: '58mm' (Standar mini posko) or '80mm' (Lebar)
+  const [thermalWidth, setThermalWidth] = useState<'58mm' | '80mm'>('58mm');
   
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
 
@@ -49,14 +51,15 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
   const docTitle = `Kuitansi-Zakat-${transaction.receiptNumber}`;
 
-  const printOptions = {
+  const printOptions: PrintServiceOptions = {
     isThermal: receiptFormat === 'thermal',
     isCompact: receiptFormat === 'compact',
+    thermalWidth: thermalWidth,
   };
 
   const handlePrint = () => {
     setStatusNotice('Membuka dialog cetak...');
-    printElementById('printable-receipt', docTitle);
+    printElementById('printable-receipt', docTitle, printOptions);
   };
 
   const handleOpenTab = () => {
@@ -326,113 +329,121 @@ Jazakumullahu khairan katsiran. Semoga zakat yang ditunaikan membawa berkah dan 
   // ---------------------------------------------------------------------------
   // THERMAL POS RECEIPT FORMAT (58mm / 80mm)
   // ---------------------------------------------------------------------------
-  const renderThermalReceipt = () => (
-    <div className="w-[300px] mx-auto bg-white p-3 font-mono text-[11px] text-slate-900 border border-slate-300 rounded-lg shadow-xs">
-      {/* Header Struk */}
-      <div className="text-center pb-2 border-b border-dashed border-slate-400 space-y-0.5">
-        <div className="font-bold text-xs uppercase tracking-tight">{config.organizationName}</div>
-        <div className="text-[10px] text-slate-600">{config.address}</div>
-        <div className="text-[10px] text-slate-600">Telp: {config.phone}</div>
-        <div className="font-bold text-[10px] mt-1">*** BUKTI TERIMA ZAKAT ***</div>
-      </div>
+  const renderThermalReceipt = () => {
+    const is58 = thermalWidth === '58mm';
+    return (
+      <div 
+        className={`thermal-receipt-root mx-auto bg-white p-2 sm:p-3 font-mono text-black border border-slate-300 rounded-lg shadow-xs transition-all ${
+          is58 ? 'w-[230px] max-w-full text-[11px]' : 'w-[290px] max-w-full text-[12px]'
+        }`}
+        style={{ color: '#000000', backgroundColor: '#ffffff' }}
+      >
+        {/* Header Struk */}
+        <div className="text-center pb-2 border-b border-dashed border-black space-y-0.5">
+          <div className="font-bold text-xs sm:text-sm uppercase tracking-tight text-black">{config.organizationName}</div>
+          <div className="text-[10px] text-black leading-tight">{config.address}</div>
+          <div className="text-[10px] text-black">Telp: {config.phone}</div>
+          <div className="font-black text-[10px] mt-1 pt-1 border-t border-dotted border-black text-black">*** BUKTI TERIMA ZAKAT ***</div>
+        </div>
 
-      {/* Metadata Struk */}
-      <div className="py-2 border-b border-dashed border-slate-400 space-y-1 text-[10px]">
-        <div className="flex justify-between">
-          <span>NO:</span>
-          <span className="font-bold">{transaction.receiptNumber}</span>
+        {/* Metadata Struk */}
+        <div className="py-2 border-b border-dashed border-black space-y-1 text-[10px] text-black">
+          <div className="flex justify-between">
+            <span className="text-black">NO:</span>
+            <span className="font-bold text-black">{transaction.receiptNumber}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-black">WAKTU:</span>
+            <span className="text-black">{formatDateTimeIndo(transaction.timestamp)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-black">MUZAKKI:</span>
+            <span className="font-bold truncate max-w-[150px] text-right text-black">{transaction.name}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-black">RT/RW:</span>
+            <span className="text-black font-semibold">{transaction.rtRw}</span>
+          </div>
         </div>
-        <div className="flex justify-between">
-          <span>WAKTU:</span>
-          <span>{formatDateTimeIndo(transaction.timestamp)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>MUZAKKI:</span>
-          <span className="font-bold truncate max-w-[170px] text-right">{transaction.name}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>RT/RW:</span>
-          <span>{transaction.rtRw}</span>
-        </div>
-      </div>
 
-      {/* Rincian Posko */}
-      <div className="py-2 border-b border-dashed border-slate-400 space-y-1.5">
-        {transaction.category === 'fitrah' ? (
-          <>
-            <div className="flex justify-between font-bold">
-              <span>ZAKAT FITRAH</span>
-              <span>{transaction.fitrahDetail?.payerCount} JIWA</span>
+        {/* Rincian Posko */}
+        <div className="py-2 border-b border-dashed border-black space-y-1.5 text-black">
+          {transaction.category === 'fitrah' ? (
+            <>
+              <div className="flex justify-between font-bold text-black">
+                <span>ZAKAT FITRAH</span>
+                <span>{transaction.fitrahDetail?.payerCount} JIWA</span>
+              </div>
+              {transaction.totalRiceKg > 0 && (
+                <div className="flex justify-between text-[10px] text-black">
+                  <span>BERAS KONSUMSI:</span>
+                  <span className="font-bold">{formatKg(transaction.totalRiceKg)}</span>
+                </div>
+              )}
+              {(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0)) > 0 && (
+                <div className="flex justify-between text-[10px] text-black">
+                  <span>UANG FITRAH:</span>
+                  <span className="font-bold">{formatRupiah(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0))}</span>
+                </div>
+              )}
+            </>
+          ) : transaction.category === 'maal' ? (
+            <div className="flex justify-between font-bold text-black">
+              <span>ZAKAT MAAL:</span>
+              <span>{formatRupiah(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0))}</span>
             </div>
-            {transaction.totalRiceKg > 0 && (
-              <div className="flex justify-between text-[10px]">
-                <span>BERAS KONSUMSI:</span>
-                <span className="font-bold">{formatKg(transaction.totalRiceKg)}</span>
-              </div>
-            )}
-            {(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0)) > 0 && (
-              <div className="flex justify-between text-[10px]">
-                <span>UANG FITRAH:</span>
-                <span className="font-bold">{formatRupiah(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0))}</span>
-              </div>
-            )}
-          </>
-        ) : transaction.category === 'maal' ? (
-          <div className="flex justify-between font-bold">
-            <span>ZAKAT MAAL:</span>
-            <span>{formatRupiah(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0))}</span>
-          </div>
-        ) : transaction.category === 'profesi' ? (
-          <div className="flex justify-between font-bold">
-            <span>ZAKAT PROFESI:</span>
-            <span>{formatRupiah(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0))}</span>
-          </div>
-        ) : transaction.category === 'fidyah' ? (
-          <div className="flex justify-between font-bold">
-            <span>FIDYAH ({transaction.fidyahDetail?.daysCount || '-'} HARI):</span>
-            <span>{formatRupiah(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0))}</span>
-          </div>
-        ) : (
-          <div className="flex justify-between font-bold">
-            <span>INFAQ / SEDEKAH:</span>
-            <span>{formatRupiah(transaction.totalMoneyRp)}</span>
-          </div>
-        )}
+          ) : transaction.category === 'profesi' ? (
+            <div className="flex justify-between font-bold text-black">
+              <span>ZAKAT PROFESI:</span>
+              <span>{formatRupiah(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0))}</span>
+            </div>
+          ) : transaction.category === 'fidyah' ? (
+            <div className="flex justify-between font-bold text-black">
+              <span>FIDYAH ({transaction.fidyahDetail?.daysCount || '-'} HARI):</span>
+              <span>{formatRupiah(transaction.totalMoneyRp - (transaction.voluntaryInfaqRp || 0))}</span>
+            </div>
+          ) : (
+            <div className="flex justify-between font-bold text-black">
+              <span>INFAQ / SEDEKAH:</span>
+              <span>{formatRupiah(transaction.totalMoneyRp)}</span>
+            </div>
+          )}
 
-        {transaction.voluntaryInfaqRp && transaction.voluntaryInfaqRp > 0 && (
-          <div className="flex justify-between text-[10px] text-slate-800 font-semibold pt-0.5 border-t border-dashed border-slate-300">
-            <span>+ INFAQ SUKARELA:</span>
-            <span>{formatRupiah(transaction.voluntaryInfaqRp)}</span>
-          </div>
-        )}
+          {transaction.voluntaryInfaqRp && transaction.voluntaryInfaqRp > 0 && (
+            <div className="flex justify-between text-[10px] font-bold text-black pt-0.5 border-t border-dotted border-black">
+              <span>+ INFAQ SUKARELA:</span>
+              <span>{formatRupiah(transaction.voluntaryInfaqRp)}</span>
+            </div>
+          )}
 
-        <div className="flex justify-between font-black text-xs pt-1 border-t border-dashed border-slate-400">
-          <span>TOTAL DITERIMA:</span>
-          <span>{transaction.totalMoneyRp > 0 ? formatRupiah(transaction.totalMoneyRp) : `${formatKg(transaction.totalRiceKg)} Beras`}</span>
+          <div className="flex justify-between font-black text-xs pt-1 border-t border-dashed border-black text-black">
+            <span>TOTAL DITERIMA:</span>
+            <span>{transaction.totalMoneyRp > 0 ? formatRupiah(transaction.totalMoneyRp) : `${formatKg(transaction.totalRiceKg)} Beras`}</span>
+          </div>
+
+          <div className="flex justify-between text-[10px] text-black pt-0.5">
+            <span>METODE:</span>
+            <span className="uppercase font-semibold">{transaction.paymentMethod}</span>
+          </div>
         </div>
 
-        <div className="flex justify-between text-[10px] text-slate-600 pt-0.5">
-          <span>METODE:</span>
-          <span className="uppercase">{transaction.paymentMethod}</span>
+        {/* Doa Ringkas Thermal */}
+        <div className="py-2 border-b border-dashed border-black text-center space-y-0.5 text-black">
+          <div className="text-[10px] font-bold">DOA AMIL:</div>
+          <div className="text-[9px] italic leading-tight">
+            "Semoga Allah memberi pahala atas apa yang engkau berikan, menjadikannya pembersih bagimu, dan memberkahi sisa hartamu."
+          </div>
+        </div>
+
+        {/* Footer Struk */}
+        <div className="pt-2 text-center text-[10px] space-y-1 text-black">
+          <div>Amil: <strong>{transaction.amilName || 'Petugas'}</strong></div>
+          <div className="text-[9px] leading-tight">Simpan struk ini sebagai bukti pembayaran sah. Jazakumullahu Khairan.</div>
+          <div className="text-[8px] font-bold mt-1 tracking-wider">*** BANTUAMIL POS DIGITAL ***</div>
         </div>
       </div>
-
-      {/* Doa Ringkas Thermal */}
-      <div className="py-2 border-b border-dashed border-slate-400 text-center space-y-0.5">
-        <div className="text-[10px] font-bold">DOA AMIL:</div>
-        <div className="text-[9px] italic leading-tight">
-          "Semoga Allah memberi pahala atas apa yang engkau berikan, menjadikannya pembersih bagimu, dan memberkahi sisa hartamu."
-        </div>
-      </div>
-
-      {/* Footer Struk */}
-      <div className="pt-2 text-center text-[10px] space-y-1">
-        <div>Amil: {transaction.amilName}</div>
-        <div className="text-[9px] text-slate-500">Simpan struk ini sebagai bukti pembayaran sah. Jazakumullahu Khairan.</div>
-        <div className="text-[8px] text-slate-400 mt-1">*** SIMZAKAT POS DIGITAL ***</div>
-      </div>
-    </div>
-  );
+    );
+  };
 
   // ---------------------------------------------------------------------------
   // STANDARD FORMAL A4 FULL PAGE RECEIPT
@@ -722,6 +733,42 @@ Jazakumullahu khairan katsiran. Semoga zakat yang ditunaikan membawa berkah dan 
           </div>
         )}
 
+        {/* Sub-selector when 'thermal' is chosen: 58mm vs 80mm */}
+        {receiptFormat === 'thermal' && (
+          <div className="no-print bg-amber-950/40 border-b border-amber-900/50 px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 text-amber-200">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>
+                <strong>Ukuran Printer Kasir POS:</strong> Pilih lebar kertas printer thermal posko Anda.
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-slate-900/60 p-0.5 rounded-lg border border-amber-700/50">
+              <button
+                type="button"
+                onClick={() => setThermalWidth('58mm')}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer flex items-center gap-1 ${
+                  thermalWidth === '58mm' ? 'bg-amber-400 text-slate-950 font-black shadow-xs' : 'text-amber-300 hover:text-white'
+                }`}
+                title="Lebar mini roll standar posko amil masjid (58mm)"
+              >
+                <span>58mm (Standar Posko)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setThermalWidth('80mm')}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer flex items-center gap-1 ${
+                  thermalWidth === '80mm' ? 'bg-amber-400 text-slate-950 font-black shadow-xs' : 'text-amber-300 hover:text-white'
+                }`}
+                title="Lebar roll 80mm untuk printer POS ukuran besar"
+              >
+                <span>80mm (Lebar)</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Live Status Notice if triggered */}
         {statusNotice && (
           <div className="no-print bg-emerald-900 text-emerald-100 text-xs px-4 py-2 flex items-center justify-between border-b border-emerald-800">
@@ -784,7 +831,7 @@ Jazakumullahu khairan katsiran. Semoga zakat yang ditunaikan membawa berkah dan 
               <span>Tip: Sangat pas untuk dicetak pada kertas A5 atau kertas potong separuh A4.</span>
             )}
             {receiptFormat === 'thermal' && (
-              <span>Tip: Hubungkan printer thermal USB/Bluetooth posko pada PC kasir.</span>
+              <span>Tip: Pasang roll thermal ({thermalWidth}). Hasil cetak kini presisi 100% selebar kertas printer POS tanpa margin kosong.</span>
             )}
             {receiptFormat === 'standard' && (
               <span>Tip: Cocok untuk muzakki korporat atau instansi yang memerlukan dokumen formal.</span>

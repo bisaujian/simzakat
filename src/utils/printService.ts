@@ -30,6 +30,12 @@ function extractAppStyles(): string {
   return styles;
 }
 
+export interface PrintServiceOptions {
+  isThermal?: boolean;
+  isCompact?: boolean;
+  thermalWidth?: '58mm' | '80mm';
+}
+
 /**
  * Generates an entirely self-contained HTML page with complete embedded styling,
  * Google fonts, and rock-solid print formatting identical to preview and PDF.
@@ -37,10 +43,11 @@ function extractAppStyles(): string {
 export function generatePrintableHtml(
   contentHtml: string, 
   title: string,
-  options?: { isThermal?: boolean; isCompact?: boolean }
+  options?: PrintServiceOptions
 ): string {
   const isThermal = options?.isThermal || false;
   const isCompact = options?.isCompact || false;
+  const thermalWidth = options?.thermalWidth || '58mm';
   const runtimeStyles = extractAppStyles();
 
   return `<!DOCTYPE html>
@@ -52,8 +59,8 @@ export function generatePrintableHtml(
   ${runtimeStyles}
   <style>
     @page {
-      size: ${isThermal ? '80mm auto' : 'A4 portrait'};
-      margin: ${isThermal ? '3mm' : isCompact ? '6mm 8mm' : '10mm 12mm'};
+      size: ${isThermal ? (thermalWidth === '80mm' ? '80mm auto' : '58mm auto') : 'A4 portrait'};
+      margin: ${isThermal ? '0mm' : isCompact ? '6mm 8mm' : '10mm 12mm'};
     }
     *, *::before, *::after {
       box-sizing: border-box;
@@ -62,13 +69,13 @@ export function generatePrintableHtml(
       color-adjust: exact !important;
     }
     html, body {
-      background: #f1f5f9;
-      color: #0f172a;
+      background: ${isThermal ? '#ffffff' : '#f1f5f9'};
+      color: ${isThermal ? '#000000' : '#0f172a'};
       margin: 0;
       padding: 0;
-      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: ${isThermal ? '11px' : isCompact ? '12px' : '13px'};
-      line-height: ${isCompact ? '1.35' : '1.5'};
+      font-family: ${isThermal ? 'monospace, "Courier New", Courier, ui-monospace, monospace' : '\'Plus Jakarta Sans\', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'};
+      font-size: ${isThermal ? (thermalWidth === '58mm' ? '12px' : '13px') : isCompact ? '12px' : '13px'};
+      line-height: ${isThermal ? '1.3' : isCompact ? '1.35' : '1.5'};
       -webkit-font-smoothing: antialiased;
     }
     .font-arabic {
@@ -79,19 +86,21 @@ export function generatePrintableHtml(
     
     /* Document page wrapper for preview & print */
     .print-wrapper {
-      padding: ${isThermal ? '4px' : '24px 16px'};
+      padding: ${isThermal ? '0' : '24px 16px'};
       display: flex;
       justify-content: center;
-      min-height: 100vh;
+      min-height: ${isThermal ? 'auto' : '100vh'};
+      background: ${isThermal ? '#ffffff' : '#f1f5f9'};
     }
     .print-container {
       width: 100%;
-      max-width: ${isThermal ? '76mm' : isCompact ? '720px' : '840px'};
+      max-width: ${isThermal ? (thermalWidth === '58mm' ? '54mm' : '76mm') : isCompact ? '720px' : '840px'};
       background: #ffffff;
-      padding: ${isThermal ? '6px' : isCompact ? '20px' : '36px'};
+      padding: ${isThermal ? '2mm 1mm' : isCompact ? '20px' : '36px'};
       border-radius: ${isThermal ? '0' : '16px'};
       box-shadow: ${isThermal ? 'none' : '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'};
       border: ${isThermal ? 'none' : '1px solid #e2e8f0'};
+      color: ${isThermal ? '#000000' : 'inherit'};
     }
 
     /* Core grid and layout reinforcements */
@@ -212,29 +221,53 @@ export function generatePrintableHtml(
 
     /* Print media overrides */
     @media print {
-      body {
-        background: transparent !important;
+      html, body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        margin: 0 !important;
         padding: 0 !important;
+        width: 100% !important;
       }
       .no-print, .print-toolbar {
         display: none !important;
       }
       .print-wrapper {
         padding: 0 !important;
+        margin: 0 !important;
         display: block !important;
+        width: 100% !important;
+        background: #ffffff !important;
       }
       .print-container {
         max-width: 100% !important;
         width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
+        margin: 0 auto !important;
+        padding: ${isThermal ? '1.5mm 1mm' : '0'} !important;
         box-shadow: none !important;
         border: none !important;
+        color: #000000 !important;
       }
       tr, .avoid-break {
         page-break-inside: avoid !important;
         break-inside: avoid !important;
       }
+      ${isThermal ? `
+      * {
+        color: #000000 !important;
+        border-color: #000000 !important;
+        box-shadow: none !important;
+        -webkit-print-color-adjust: exact !important;
+      }
+      .thermal-receipt-root {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+      }
+      ` : ''}
     }
   </style>
 </head>
@@ -279,7 +312,7 @@ export function generatePrintableHtml(
 export function openPrintTab(
   elementId: string, 
   title: string, 
-  options?: { isThermal?: boolean; isCompact?: boolean }
+  options?: PrintServiceOptions
 ): boolean {
   const element = document.getElementById(elementId);
   if (!element) {
@@ -319,7 +352,7 @@ export function openPrintTab(
 export async function exportToPdf(
   elementId: string, 
   filename: string,
-  options?: { isThermal?: boolean; isCompact?: boolean; title?: string }
+  options?: PrintServiceOptions & { title?: string }
 ): Promise<boolean> {
   const element = document.getElementById(elementId);
   if (!element) {
@@ -364,17 +397,20 @@ export async function exportToPdf(
     const imgData = canvas.toDataURL('image/png');
     const isThermal = options?.isThermal || false;
     const isCompact = options?.isCompact || false;
+    const thermalWidth = options?.thermalWidth || '58mm';
 
     if (isThermal) {
-      // Thermal 80mm roll format
-      const pdfWidth = 80;
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      // Thermal 58mm or 80mm roll format
+      const pdfWidth = thermalWidth === '80mm' ? 80 : 58;
+      const marginX = thermalWidth === '80mm' ? 3 : 2;
+      const printableWidth = pdfWidth - marginX * 2;
+      const printableHeight = (canvas.height * printableWidth) / canvas.width;
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
-        format: [pdfWidth, Math.max(100, pdfHeight + 10)],
+        format: [pdfWidth, Math.max(70, printableHeight + 8)],
       });
-      pdf.addImage(imgData, 'PNG', 0, 5, pdfWidth, pdfHeight);
+      pdf.addImage(imgData, 'PNG', marginX, 3, printableWidth, printableHeight);
       pdf.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
     } else {
       // Standard or Compact A4 format
@@ -424,7 +460,7 @@ export async function exportToPdf(
 export function printElementById(
   elementId: string, 
   documentTitle: string,
-  options?: { isThermal?: boolean; isCompact?: boolean }
+  options?: PrintServiceOptions
 ): boolean {
   const element = document.getElementById(elementId);
   if (!element) {
@@ -482,7 +518,7 @@ export function downloadHtmlFile(
   elementId: string, 
   filename: string, 
   title: string,
-  options?: { isThermal?: boolean; isCompact?: boolean }
+  options?: PrintServiceOptions
 ): void {
   const element = document.getElementById(elementId);
   if (!element) {

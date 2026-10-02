@@ -620,8 +620,6 @@ export default function App() {
               <DonationModalIcon />
               <span>Infaq Pengembangan SimZakat</span>
             </button>
-            <span className="text-slate-300">•</span>
-            <span className="text-slate-400">Siap Dipublish di VPS Ubuntu + MySQL</span>
           </div>
         </div>
       </footer>
