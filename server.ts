@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
-import type { Request, Response } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import fs from 'fs';
 import mysql from 'mysql2/promise';
@@ -96,12 +96,74 @@ export function isMySQLConnected(): boolean {
 }
 
 // -----------------------------------------------------------------------------
-// EXPRESS APP INITIALIZATION
+// EXPRESS APP INITIALIZATION & SECURITY HEADERS (Rule 22)
 // -----------------------------------------------------------------------------
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-app.use(express.json());
+app.disable('x-powered-by');
+
+// Security Headers (OWASP Top 10 & Rule 22)
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+
+app.use(express.json({ limit: '10mb' }));
+
+// -----------------------------------------------------------------------------
+// RATE LIMITING PROTECTION FOR SENSITIVE ENDPOINTS (Rule 10)
+// -----------------------------------------------------------------------------
+interface RateLimitRecord {
+  count: number;
+  resetAt: number;
+}
+const rateLimitStore = new Map<string, RateLimitRecord>();
+
+function createAuthRateLimiter(windowMs: number, maxRequests: number, customMessage: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    const clientIp = Array.isArray(rawIp) ? rawIp[0] : String(rawIp).split(',')[0].trim();
+    const limiterKey = `${req.path}:${clientIp}`;
+    const now = Date.now();
+
+    const record = rateLimitStore.get(limiterKey);
+    if (!record || now > record.resetAt) {
+      rateLimitStore.set(limiterKey, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+
+    if (record.count >= maxRequests) {
+      return res.status(429).json({
+        success: false,
+        message: customMessage,
+      });
+    }
+
+    record.count++;
+    return next();
+  };
+}
+
+// 15 menit, maks 12 percobaan gagal/request per IP untuk auth sensitif
+const authRateLimiter = createAuthRateLimiter(
+  15 * 60 * 1000,
+  12,
+  'Terlalu banyak permintaan autentikasi. Demi keamanan akun, silakan tunggu beberapa menit sebelum mencoba lagi.'
+);
+
+// Bersihkan data limiter kadaluwarsa setiap 15 menit secara periodik
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of rateLimitStore.entries()) {
+    if (now > record.resetAt) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 15 * 60 * 1000);
 
 // -----------------------------------------------------------------------------
 // API ROUTES
@@ -426,7 +488,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
 });
 
 // Auth: Register Masjid Endpoint
-app.post('/api/auth/register', async (req: Request, res: Response) => {
+app.post('/api/auth/register', authRateLimiter, async (req: Request, res: Response) => {
   const { masjidName, leadName, address, city, contactPhone, email, username, password } = req.body;
 
   const masjidId = `masjid-${Date.now().toString(36)}`;
@@ -493,14 +555,16 @@ async function sendWhatsAppMessage(targetPhone: string, messageText: string): Pr
     cleanPhone = '62' + cleanPhone;
   }
 
-  // Jika token belum diatur, lakukan simulasi transparan dengan log
+  // Jika token belum diatur, lakukan simulasi dengan log aman tanpa membocorkan isi token/OTP (Rule 12 & Rule 20)
   if (!waConfig.apiToken || waConfig.apiToken.trim() === '') {
-    console.log(`[WA Gateway - Simulasi] Pesan untuk ${cleanPhone}:`);
-    console.log(messageText);
+    const maskedPhone = cleanPhone.length > 7
+      ? `${cleanPhone.slice(0, 4)}****${cleanPhone.slice(-3)}`
+      : 'nomor tujuan';
+    console.log(`[WA Gateway - Simulasi] Notifikasi WhatsApp disiapkan untuk ${maskedPhone}`);
     return {
       success: true,
       status: 'simulated',
-      message: `Token WhatsApp Gateway belum diatur. Pesan tercatat di log server untuk nomor ${cleanPhone}.`,
+      message: `Token WhatsApp Gateway belum diatur. Pesan telah disiapkan untuk WhatsApp ${maskedPhone}.`,
     };
   }
 
@@ -659,7 +723,7 @@ interface ResetStoreRecord {
 const serverResetStore = new Map<string, ResetStoreRecord>();
 
 // Auth: Permintaan Reset Password
-app.post('/api/auth/request-reset', async (req: Request, res: Response) => {
+app.post('/api/auth/request-reset', authRateLimiter, async (req: Request, res: Response) => {
   const { usernameOrEmail } = req.body;
   if (!usernameOrEmail) {
     return res.status(400).json({ success: false, message: 'Username atau email wajib diisi.' });
@@ -831,7 +895,7 @@ app.delete('/api/platform/reset-tickets/:id', (req: Request, res: Response) => {
 });
 
 // Auth: Konfirmasi Reset Password
-app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
+app.post('/api/auth/reset-password', authRateLimiter, async (req: Request, res: Response) => {
   const { usernameOrEmail, verificationCode, newPassword } = req.body;
   if (!usernameOrEmail || !verificationCode || !newPassword) {
     return res.status(400).json({ success: false, message: 'Data formulir tidak lengkap.' });
