@@ -1029,7 +1029,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         const totalDana = (m.totalFitrahCashRp || 0) + (m.totalMaalRp || 0);
 
                         // WA URL for direct chat
-                        const cleanPhone = m.contactPhone.replace(/[^0-9]/g, '');
+                        const cleanPhone = String(m.contactPhone || '').replace(/[^0-9]/g, '');
                         const waNumber = cleanPhone.startsWith('0') ? `62${cleanPhone.slice(1)}` : cleanPhone;
                         const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(`Assalamu'alaikum, kami dari SimZakat Pusat mengonfirmasi posko ${m.name}.`)}`;
 
