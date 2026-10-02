@@ -652,6 +652,7 @@ _Pusat Sistem SimZakat Indonesia_`;
 interface ResetStoreRecord {
   userId: string;
   username: string;
+  email?: string;
   code: string;
   expiresAt: number;
 }
@@ -718,6 +719,7 @@ app.post('/api/auth/request-reset', async (req: Request, res: Response) => {
   serverResetStore.set(foundUser.id, {
     userId: foundUser.id,
     username: foundUser.username,
+    email: foundUser.email,
     code,
     expiresAt,
   });
@@ -815,6 +817,19 @@ app.post('/api/platform/reset-tickets/:id/resolve', async (req: Request, res: Re
   res.json({ success: true, message: `Tiket ${ticketId} berhasil diselesaikan.` });
 });
 
+// Platform API: Hapus Tiket atau Bersihkan Tiket Selesai
+app.delete('/api/platform/reset-tickets/:id', (req: Request, res: Response) => {
+  const ticketId = req.params.id;
+  let tickets = readJsonFile<any[]>('reset_tickets.json', []);
+  if (ticketId === 'clear-resolved') {
+    tickets = tickets.filter((t: any) => t.status === 'pending');
+  } else {
+    tickets = tickets.filter((t: any) => t.id !== ticketId);
+  }
+  writeJsonFile('reset_tickets.json', tickets);
+  res.json({ success: true, message: 'Tiket berhasil dibersihkan.' });
+});
+
 // Auth: Konfirmasi Reset Password
 app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
   const { usernameOrEmail, verificationCode, newPassword } = req.body;
@@ -827,37 +842,69 @@ app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
   }
 
   const query = usernameOrEmail.trim().toLowerCase();
-  const enteredCode = verificationCode.trim();
+  const enteredCode = verificationCode.replace(/\s+/g, '').trim();
   const isMasterCode = enteredCode === '144799';
 
+  // 1. Cek di file persistent reset_tickets.json di VPS
+  const tickets = readJsonFile<any[]>('reset_tickets.json', []);
+  const matchingTicket = tickets.find((t: any) => 
+    t.username?.toLowerCase() === query || 
+    t.email?.toLowerCase() === query || 
+    t.userId?.toLowerCase() === query
+  );
+
+  // 2. Cek juga di memory serverResetStore
   let resetRecord: ResetStoreRecord | undefined;
   for (const record of serverResetStore.values()) {
-    if (record.username.toLowerCase() === query) {
+    if (
+      record.username.toLowerCase() === query ||
+      record.email?.toLowerCase() === query ||
+      record.userId.toLowerCase() === query
+    ) {
       resetRecord = record;
       break;
     }
   }
 
+  const validCode = resetRecord?.code || matchingTicket?.code;
+  const expiresAt = resetRecord?.expiresAt || matchingTicket?.expiresAt;
+
   if (!isMasterCode) {
-    if (!resetRecord || resetRecord.code !== enteredCode) {
-      return res.status(400).json({ success: false, message: 'Kode OTP verifikasi tidak valid atau tidak cocok.' });
+    if (!validCode || validCode !== enteredCode) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Kode OTP verifikasi tidak valid atau tidak cocok. Pastikan 6 digit kode dimasukkan dengan tepat.' 
+      });
     }
-    if (Date.now() > resetRecord.expiresAt) {
-      return res.status(400).json({ success: false, message: 'Kode verifikasi telah kedaluwarsa. Silakan minta kode baru.' });
+    if (expiresAt && Date.now() > expiresAt) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Kode verifikasi telah kedaluwarsa. Silakan minta kirim ulang kode baru.' 
+      });
     }
   }
 
   // Update password di MySQL jika database terhubung
-  await safeMySQLQuery(
-    'UPDATE users SET password = ?, password_hash = ? WHERE LOWER(username) = ? OR LOWER(email) = ?',
-    [newPassword, newPassword, query, query]
-  );
+  const targetUserId = resetRecord?.userId || matchingTicket?.userId;
+  if (targetUserId) {
+    await safeMySQLQuery(
+      'UPDATE users SET password = ?, password_hash = ? WHERE id = ? OR LOWER(username) = ? OR LOWER(email) = ?',
+      [newPassword, newPassword, targetUserId, query, query]
+    );
+  } else {
+    await safeMySQLQuery(
+      'UPDATE users SET password = ?, password_hash = ? WHERE LOWER(username) = ? OR LOWER(email) = ?',
+      [newPassword, newPassword, query, query]
+    );
+  }
 
-  // Update status tiket di reset_tickets.json
-  const tickets = readJsonFile<any[]>('reset_tickets.json', []);
+  // Update status tiket di reset_tickets.json menjadi resolved
   let ticketUpdated = false;
   for (const t of tickets) {
-    if ((t.username?.toLowerCase() === query || t.email?.toLowerCase() === query) && t.status === 'pending') {
+    if (
+      (t.username?.toLowerCase() === query || t.email?.toLowerCase() === query || (targetUserId && t.userId === targetUserId)) &&
+      t.status === 'pending'
+    ) {
       t.status = 'resolved';
       t.resolvedAt = new Date().toISOString();
       ticketUpdated = true;

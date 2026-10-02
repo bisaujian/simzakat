@@ -188,24 +188,53 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   // Reset Tickets State for Super Admin / Owner
   const [resetTickets, setResetTickets] = useState<PasswordResetTicket[]>(() => ownerService.getResetTickets());
+  const [isRefreshingTickets, setIsRefreshingTickets] = useState(false);
 
-  const refreshResetTickets = () => {
+  const refreshResetTickets = (isManual = false) => {
+    if (isManual) setIsRefreshingTickets(true);
     ownerService.fetchResetTicketsFromServer().then((tickets) => {
       setResetTickets(tickets);
     }).catch(() => {
       setResetTickets(ownerService.getResetTickets());
+    }).finally(() => {
+      if (isManual) {
+        setTimeout(() => setIsRefreshingTickets(false), 400);
+      }
     });
   };
 
-  // Sync tickets on mount and whenever tab changes
+  // Sync tickets on mount and whenever tab changes, plus auto-refresh every 5s on security tab
   React.useEffect(() => {
     refreshResetTickets();
+
+    if (activeTab === 'security_settings') {
+      const interval = setInterval(() => {
+        refreshResetTickets(false);
+      }, 5000);
+      return () => clearInterval(interval);
+    }
   }, [activeTab]);
+
+  const [ticketFilter, setTicketFilter] = useState<'pending' | 'resolved' | 'all'>('pending');
 
   const handleResolveTicket = (ticketId: string) => {
     const res = ownerService.resolveResetTicket(ticketId);
     if (res.success) {
       showToast(res.message, 'success');
+      refreshResetTickets();
+    }
+  };
+
+  const handleDeleteTicket = (ticketId: string) => {
+    ownerService.deleteResetTicket(ticketId);
+    showToast('Tiket antrean berhasil dihapus.', 'info');
+    refreshResetTickets();
+  };
+
+  const handleClearResolvedTickets = () => {
+    if (confirm('Bersihkan seluruh riwayat tiket yang sudah selesai digunakan?')) {
+      ownerService.deleteResetTicket('clear-resolved');
+      showToast('Seluruh riwayat tiket selesai telah dibersihkan.', 'success');
       refreshResetTickets();
     }
   };
@@ -3087,10 +3116,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={refreshResetTickets}
+                    onClick={() => refreshResetTickets(true)}
                     className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    title="Segarkan daftar tiket permintaan reset kata sandi dari server VPS"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingTickets ? 'animate-spin text-emerald-400' : ''}`} />
                     <span>Segarkan Data</span>
                   </button>
                 </div>
@@ -3108,84 +3138,184 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 </div>
               </div>
 
-              {resetTickets.length === 0 ? (
-                <div className="p-8 text-center rounded-2xl bg-slate-950/60 border border-slate-800/80 text-xs text-slate-400 space-y-1">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2 opacity-80" />
-                  <div className="font-bold text-slate-300">Tidak Ada Antrean Reset Kata Sandi</div>
-                  <p className="text-[11px] text-slate-500">
-                    Seluruh pengurus masjid dapat login dengan lancar. Jika ada yang menekan tombol lupa sandi, tiket akan muncul di sini secara seketika.
-                  </p>
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-800 border border-slate-800 rounded-2xl overflow-hidden bg-slate-950/50">
-                  {resetTickets.map((ticket) => {
-                    const isPending = ticket.status === 'pending';
-                    return (
-                      <div key={ticket.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-[10px] text-purple-400 font-bold px-2 py-0.5 rounded-md bg-purple-950 border border-purple-800">
-                              {ticket.id}
-                            </span>
-                            <span className="font-bold text-white text-sm">
-                              {ticket.accountName}
-                            </span>
-                            <span className="text-slate-400 font-mono">
-                              (@{ticket.username})
-                            </span>
-                            {isPending ? (
-                              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
-                                Menunggu Verifikasi
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
-                                Selesai
-                              </span>
-                            )}
-                          </div>
+              {/* Tab Filter & Quick Actions */}
+              {(() => {
+                const pendingTickets = resetTickets.filter((t) => t.status === 'pending');
+                const resolvedTickets = resetTickets.filter((t) => t.status === 'resolved');
+                const displayedTickets = ticketFilter === 'pending'
+                  ? pendingTickets
+                  : ticketFilter === 'resolved'
+                  ? resolvedTickets
+                  : resetTickets;
 
-                          <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1">
-                            <span>Lembaga: <strong className="text-slate-300">{ticket.masjidName || 'DKM'}</strong></span>
-                            <span>WA: <strong className="text-slate-300 font-mono">{ticket.phone}</strong></span>
-                            <span>Diajukan: {new Date(ticket.requestedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</span>
-                          </div>
-                        </div>
+                return (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-950/70 border border-slate-800 text-xs font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => setTicketFilter('pending')}
+                          className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+                            ticketFilter === 'pending'
+                              ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shadow-xs'
+                              : 'text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <span>Antrean Aktif</span>
+                          <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                            pendingTickets.length > 0 ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            {pendingTickets.length}
+                          </span>
+                        </button>
 
-                        <div className="flex flex-wrap items-center gap-2 shrink-0">
-                          <div className="px-3 py-1.5 rounded-xl bg-purple-950 border border-purple-800 text-purple-200 text-xs font-mono font-bold flex items-center gap-1.5">
-                            <span className="text-[10px] text-purple-400 font-sans">Kode OTP:</span>
-                            <strong className="text-white text-sm tracking-wider">{ticket.code}</strong>
-                          </div>
+                        <button
+                          type="button"
+                          onClick={() => setTicketFilter('resolved')}
+                          className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+                            ticketFilter === 'resolved'
+                              ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 shadow-xs'
+                              : 'text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <span>Riwayat Selesai</span>
+                          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 text-slate-400 font-bold">
+                            {resolvedTickets.length}
+                          </span>
+                        </button>
 
-                          <a
-                            href={`https://wa.me/${ticket.phone.replace(/[^0-9]/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(
-                              `Assalamu'alaikum ${ticket.accountName}. Kode verifikasi resmi pemulihan kata sandi SimZakat masjid Anda adalah: ${ticket.code}. Berlaku 15 menit. Jaga kerahasiaan kode ini.`
-                            )}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
-                            title="Kirim kode OTP langsung ke WhatsApp pengurus"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            <span>Kirim WA ke Pengurus</span>
-                          </a>
-
-                          {isPending && (
-                            <button
-                              type="button"
-                              onClick={() => handleResolveTicket(ticket.id)}
-                              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition cursor-pointer"
-                              title="Tandai tiket ini sudah selesai"
-                            >
-                              Tandai Selesai
-                            </button>
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setTicketFilter('all')}
+                          className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer ${
+                            ticketFilter === 'all'
+                              ? 'bg-purple-500/20 text-purple-300 font-bold border border-purple-500/40 shadow-xs'
+                              : 'text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <span>Semua ({resetTickets.length})</span>
+                        </button>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+
+                      {resolvedTickets.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearResolvedTickets}
+                          className="px-3 py-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/40 text-rose-300 hover:text-rose-100 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                          title="Bersihkan riwayat tiket yang sudah selesai digunakan"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                          <span>Bersihkan Riwayat ({resolvedTickets.length})</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {displayedTickets.length === 0 ? (
+                      <div className="p-8 text-center rounded-2xl bg-slate-950/60 border border-slate-800/80 text-xs text-slate-400 space-y-1">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2 opacity-80" />
+                        <div className="font-bold text-slate-300">
+                          {ticketFilter === 'pending'
+                            ? 'Tidak Ada Antrean Menunggu'
+                            : ticketFilter === 'resolved'
+                            ? 'Belum Ada Riwayat Selesai'
+                            : 'Tidak Ada Tiket Reset Sandi'}
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          {ticketFilter === 'pending'
+                            ? resolvedTickets.length > 0
+                              ? `Seluruh permintaan reset sebelumnya telah selesai digunakan (${resolvedTickets.length} tiket). Anda dapat mengeceknya di tab "Riwayat Selesai".`
+                              : 'Seluruh pengurus masjid dapat login dengan lancar. Jika ada yang menekan tombol lupa sandi, tiket akan muncul di sini secara seketika.'
+                            : 'Daftar riwayat tiket akan tercatat di sini.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-800 border border-slate-800 rounded-2xl overflow-hidden bg-slate-950/50">
+                        {displayedTickets.map((ticket) => {
+                          const isPending = ticket.status === 'pending';
+                          return (
+                            <div key={ticket.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-[10px] text-purple-400 font-bold px-2 py-0.5 rounded-md bg-purple-950 border border-purple-800">
+                                    {ticket.id}
+                                  </span>
+                                  <span className="font-bold text-white text-sm">
+                                    {ticket.accountName}
+                                  </span>
+                                  <span className="text-slate-400 font-mono">
+                                    (@{ticket.username})
+                                  </span>
+                                  {isPending ? (
+                                    <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
+                                      Menunggu Verifikasi
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
+                                      Selesai
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                  <span>Lembaga: <strong className="text-slate-300">{ticket.masjidName || 'DKM'}</strong></span>
+                                  <span>WA: <strong className="text-slate-300 font-mono">{ticket.phone}</strong></span>
+                                  <span>Diajukan: {new Date(ticket.requestedAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</span>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                <div className="px-3 py-1.5 rounded-xl bg-purple-950 border border-purple-800 text-purple-200 text-xs font-mono font-bold flex items-center gap-1.5">
+                                  <span className="text-[10px] text-purple-400 font-sans">Kode OTP:</span>
+                                  <strong className="text-white text-sm tracking-wider">{ticket.code}</strong>
+                                </div>
+
+                                {isPending ? (
+                                  <>
+                                    <a
+                                      href={`https://wa.me/${ticket.phone.replace(/[^0-9]/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(
+                                        `Assalamu'alaikum ${ticket.accountName}. Kode verifikasi resmi pemulihan kata sandi SimZakat masjid Anda adalah: ${ticket.code}. Berlaku 15 menit. Jaga kerahasiaan kode ini.`
+                                      )}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                                      title="Kirim kode OTP langsung ke WhatsApp pengurus"
+                                    >
+                                      <MessageCircle className="w-3.5 h-3.5" />
+                                      <span>Kirim WA ke Pengurus</span>
+                                    </a>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleResolveTicket(ticket.id)}
+                                      className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition cursor-pointer"
+                                      title="Tandai tiket ini sudah selesai"
+                                    >
+                                      Tandai Selesai
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="px-2.5 py-1 text-[11px] text-slate-400 bg-slate-900 border border-slate-800 rounded-xl">
+                                    Sudah Digunakan
+                                  </span>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteTicket(ticket.id)}
+                                  className="p-1.5 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-950/40 transition cursor-pointer"
+                                  title="Hapus tiket ini dari daftar"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}

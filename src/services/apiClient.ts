@@ -596,8 +596,8 @@ export const authService = {
         body: JSON.stringify(payload),
       });
 
-      if (serverRes.ok) {
-        const sData = await serverRes.json();
+      const sData = await serverRes.json().catch(() => null);
+      if (sData) {
         if (sData.success) {
           // Sinkronkan juga ke akun lokal jika ada
           const users = getLocalItem<(UserAccount & { password?: string })[]>(STORAGE_KEYS.USERS, DEFAULT_USERS);
@@ -609,11 +609,11 @@ export const authService = {
           }
           return sData;
         } else {
-          return { success: false, message: sData.message || 'Kode verifikasi tidak sesuai.' };
+          return { success: false, message: sData.message || 'Kode verifikasi OTP tidak sesuai atau telah kedaluwarsa.' };
         }
       }
     } catch {
-      // Fallback lokal
+      // Fallback lokal jika offline
     }
 
     const users = getLocalItem<(UserAccount & { password?: string })[]>(STORAGE_KEYS.USERS, DEFAULT_USERS);
@@ -622,17 +622,24 @@ export const authService = {
       (u) => u.username.toLowerCase() === query || u.email.toLowerCase() === query
     );
 
-    if (userIndex === -1) {
-      return { success: false, message: 'Akun tidak ditemukan.' };
-    }
-
-    const user = users[userIndex];
+    const user = userIndex !== -1 ? users[userIndex] : undefined;
     const resetRequests = getLocalItem<Record<string, { code: string; expiresAt: number }>>('simzakat_password_resets', {});
-    const resetData = resetRequests[user.id];
+    const resetData = user ? resetRequests[user.id] : undefined;
 
-    // Accept generated code or master recovery code '144799' for emergency recovery
-    const enteredCode = payload.verificationCode.trim();
-    if (!resetData || (resetData.code !== enteredCode && enteredCode !== '144799')) {
+    // Cek juga dari daftar tiket lokal
+    const tickets = getLocalItem<PasswordResetTicket[]>('simzakat_password_reset_tickets', []);
+    const matchingTicket = tickets.find((t) => 
+      t.username.toLowerCase() === query || 
+      t.email?.toLowerCase() === query || 
+      (user && t.userId === user.id)
+    );
+
+    // Accept generated code or ticket code or master recovery code '144799' for emergency recovery
+    const enteredCode = payload.verificationCode.replace(/\s+/g, '').trim();
+    const validLocalCode = resetData?.code || matchingTicket?.code;
+    const isMasterCode = enteredCode === '144799';
+
+    if (!isMasterCode && (!validLocalCode || validLocalCode !== enteredCode)) {
       return { success: false, message: 'Kode verifikasi pemulihan tidak valid atau sudah kedaluwarsa. Pastikan 6 digit kode dimasukkan dengan tepat.' };
     }
 
@@ -640,17 +647,20 @@ export const authService = {
       return { success: false, message: 'Kata sandi baru minimal 5 karakter demi keamanan.' };
     }
 
-    // Update password
-    users[userIndex].password = payload.newPassword;
-    setLocalItem(STORAGE_KEYS.USERS, users);
-
-    // Clear reset request
-    delete resetRequests[user.id];
-    setLocalItem('simzakat_password_resets', resetRequests);
+    // Update password jika akun ada di lokal
+    if (user && userIndex !== -1) {
+      users[userIndex].password = payload.newPassword;
+      setLocalItem(STORAGE_KEYS.USERS, users);
+      delete resetRequests[user.id];
+      setLocalItem('simzakat_password_resets', resetRequests);
+    }
 
     // Update ticket status to resolved
-    const tickets = getLocalItem<PasswordResetTicket[]>('simzakat_password_reset_tickets', []);
-    const updatedTickets = tickets.map((t) => t.userId === user.id && t.status === 'pending' ? { ...t, status: 'resolved' as const } : t);
+    const updatedTickets = tickets.map((t) => 
+      (t.username.toLowerCase() === query || t.email?.toLowerCase() === query || (user && t.userId === user.id)) && t.status === 'pending'
+        ? { ...t, status: 'resolved' as const } 
+        : t
+    );
     setLocalItem('simzakat_password_reset_tickets', updatedTickets);
 
     return { success: true, message: 'Alhamdulillah! Kata sandi baru berhasil disimpan. Silakan masuk menggunakan kata sandi baru Anda.' };
@@ -881,6 +891,22 @@ export const ownerService = {
     }).catch(() => {});
 
     return { success: true, message: `Tiket ${ticketId} berhasil diselesaikan oleh Super Admin!` };
+  },
+
+  deleteResetTicket(ticketId: string): void {
+    initSeedData();
+    let tickets = getLocalItem<PasswordResetTicket[]>('simzakat_password_reset_tickets', []);
+    if (ticketId === 'clear-resolved') {
+      tickets = tickets.filter((t) => t.status === 'pending');
+    } else {
+      tickets = tickets.filter((t) => t.id !== ticketId);
+    }
+    setLocalItem('simzakat_password_reset_tickets', tickets);
+
+    // Sinkronkan ke server VPS
+    fetch(`/api/platform/reset-tickets/${ticketId}`, {
+      method: 'DELETE',
+    }).catch(() => {});
   },
 
   resetUserPasswordDirect(userIdOrUsername: string, newPassword: string): { success: boolean; message: string } {
