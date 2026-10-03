@@ -1426,6 +1426,74 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               {/* SUBTAB 1: HEADER, AYAT & HERO */}
               {landingSubTab === 'hero' && (
                 <div className="space-y-6">
+                  {/* Section: Identitas Brand & Logo Platform (Header & Navbar) */}
+                  <div className="p-6 rounded-3xl bg-slate-800/40 border border-slate-700/80 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                      <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
+                        <Scale className="w-4 h-4 text-emerald-400" />
+                        <span>Identitas Brand, Logo &amp; Tagline (Header &amp; Footer)</span>
+                      </div>
+                      <span className="text-[11px] text-slate-400">Dapat dikustomisasi oleh Platform Owner</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                          Nama Brand Platform (Header Title)
+                        </label>
+                        <input
+                          type="text"
+                          value={landingForm.headerTitle ?? ''}
+                          onChange={(e) => setLandingForm({ ...landingForm, headerTitle: e.target.value })}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                          placeholder="Misal: BantuAmil atau SimZakat"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                          Badge Versi (Header)
+                        </label>
+                        <input
+                          type="text"
+                          value={landingForm.headerVersionBadge ?? ''}
+                          onChange={(e) => setLandingForm({ ...landingForm, headerVersionBadge: e.target.value })}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                          placeholder="Misal: DKM v2.5"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                          URL Gambar Logo Kustom (Opsional)
+                        </label>
+                        <input
+                          type="text"
+                          value={landingForm.logoUrl ?? ''}
+                          onChange={(e) => setLandingForm({ ...landingForm, logoUrl: e.target.value })}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                          placeholder="https://.../logo.png (Kosongkan utk icon default)"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                        Tagline / Slogan Subtitle (Header)
+                      </label>
+                      <input
+                        type="text"
+                        value={landingForm.headerTagline ?? ''}
+                        onChange={(e) => setLandingForm({ ...landingForm, headerTagline: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                        placeholder="Misal: Sistem Manajemen Zakat Fitrah & Maal Terpadu"
+                      />
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        * Logo dan Nama Brand ini otomatis tampil di header navbar utama dan footer landing page.
+                      </p>
+                    </div>
+                  </div>
+
                   {/* Section: Top Announcement Bar */}
                   <div className="p-6 rounded-3xl bg-slate-800/40 border border-slate-700/80 space-y-4">
                     <div className="flex items-center gap-2 text-purple-300 font-bold text-sm border-b border-slate-700/80 pb-3">

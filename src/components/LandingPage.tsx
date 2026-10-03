@@ -117,17 +117,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-emerald-200 selection:text-emerald-950">
       
       {/* 1. TOP ANNOUNCEMENT BAR (Clean & Spiritual) */}
-      <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 text-white text-xs py-2 px-4 shadow-xs">
+      <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 text-white text-xs py-1.5 sm:py-2 px-3 sm:px-4 shadow-xs">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1 text-center sm:text-left">
-          <div className="flex items-center gap-2">
-            <span className="bg-amber-400 text-slate-950 font-black px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wide">
+          <div className="flex items-center gap-2 max-w-full overflow-hidden">
+            <span className="bg-amber-400 text-slate-950 font-black px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wide shrink-0">
               {cfg.announcementBadge || 'Dakwah Digital'}
             </span>
-            <span className="text-emerald-100 font-medium">
+            <span className="text-emerald-100 font-medium truncate text-[11px] sm:text-xs">
               {cfg.announcementText || 'Sistem Informasi Manajemen Zakat Standar Kemenag RI, MUI & Had Kifayah BAZNAS'}
             </span>
           </div>
-          <div className="flex items-center gap-3 text-emerald-200">
+          <div className="flex items-center gap-3 text-emerald-200 text-[11px] sm:text-xs shrink-0">
             {onOpenDonationModal && (
               <button
                 type="button"
@@ -146,22 +146,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
       {/* 2. MAIN NAVBAR */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between gap-2 sm:gap-3">
           
           {/* Logo Brand */}
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-emerald-700 to-teal-800 flex items-center justify-center text-white shadow-md shadow-emerald-700/20 shrink-0">
-              <Scale className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {cfg.logoUrl ? (
+              <img
+                src={cfg.logoUrl}
+                alt={cfg.headerTitle || 'BantuAmil'}
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl object-contain shadow-xs shrink-0 bg-white p-0.5 border border-slate-200"
+              />
+            ) : (
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-emerald-700 to-teal-800 flex items-center justify-center text-white shadow-md shadow-emerald-700/20 shrink-0">
+                <Scale className="w-4 h-4 sm:w-5 sm:h-5" />
+              </div>
+            )}
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-black text-lg sm:text-xl tracking-tight text-slate-900">SimZakat</span>
-                <span className="px-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold bg-emerald-100 text-emerald-800 rounded-md shrink-0">
-                  DKM v2.5
+                <span className="font-black text-lg sm:text-xl tracking-tight text-slate-900 truncate">
+                  {cfg.headerTitle || 'BantuAmil'}
                 </span>
+                {cfg.headerVersionBadge && (
+                  <span className="hidden sm:inline-flex px-1.5 py-0.5 text-[9px] sm:text-[10px] font-extrabold bg-emerald-100 text-emerald-800 rounded-md shrink-0">
+                    {cfg.headerVersionBadge}
+                  </span>
+                )}
               </div>
               <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate hidden sm:block">
-                Sistem Manajemen Zakat Fitrah &amp; Maal Terpadu
+                {cfg.headerTagline || 'Sistem Manajemen Zakat Fitrah & Maal Terpadu'}
               </p>
             </div>
           </div>
@@ -173,7 +185,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 type="button"
                 onClick={onOpenDonationModal}
                 className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200/80 transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                title="Dukung biaya server &amp; operasional pengembang"
+                title="Dukung biaya server & operasional pengembang"
               >
                 <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
                 <span>Infaq Dakwah</span>
@@ -206,29 +218,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </button>
           </div>
 
-          {/* Quick Action Navigation - Mobile Controls */}
+          {/* Quick Action Navigation - Mobile Controls (Clean & Spacious) */}
           <div className="flex md:hidden items-center gap-1.5 shrink-0">
-            {onOpenDonationModal && (
-              <button
-                type="button"
-                onClick={onOpenDonationModal}
-                className="p-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer"
-                title="Infaq Operasional"
-              >
-                <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
-              </button>
-            )}
-
             <button
               onClick={onOpenLogin}
-              className="px-2.5 py-1.5 rounded-lg text-slate-700 font-bold text-xs hover:bg-slate-100 cursor-pointer"
+              className="px-2.5 py-1.5 rounded-lg text-slate-700 font-bold text-xs hover:bg-slate-100 cursor-pointer transition"
             >
               Masuk
             </button>
 
             <button
               onClick={onOpenRegister}
-              className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-bold text-xs cursor-pointer shadow-xs"
+              className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs cursor-pointer shadow-xs transition"
             >
               Daftar
             </button>
@@ -236,7 +237,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button
               type="button"
               onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
-              className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer ml-0.5"
+              className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer transition ml-0.5"
               aria-label="Buka Menu"
             >
               {isMobileNavOpen ? <XIcon className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -682,12 +683,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* 10. CLEAN FOOTER (DYNAMIC) */}
       <footer className="py-8 bg-slate-900 text-slate-400 text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Scale className="w-4 h-4 text-emerald-400" />
-            <span className="font-bold text-white">{cfg.footerTitle || 'SimZakat'}</span> — {cfg.footerDescription || 'Khidmah Dakwah Amil Zakat & Mustahiq Indonesia'}
+          <div className="flex items-center gap-2.5">
+            {cfg.logoUrl ? (
+              <img
+                src={cfg.logoUrl}
+                alt={cfg.footerTitle || cfg.headerTitle || 'BantuAmil'}
+                className="w-5 h-5 rounded-md object-contain shrink-0 bg-white/10 p-0.5"
+              />
+            ) : (
+              <Scale className="w-4 h-4 text-emerald-400 shrink-0" />
+            )}
+            <div>
+              <span className="font-bold text-white">{cfg.footerTitle || cfg.headerTitle || 'BantuAmil'}</span> — {cfg.footerDescription || 'Khidmah Dakwah Amil Zakat & Mustahiq Indonesia'}
+            </div>
           </div>
-          <div className="text-[11px] text-slate-500">
-            &copy; {new Date().getFullYear()} {cfg.footerTitle || 'SimZakat'}. {cfg.footerCopyright || 'Dibangun untuk kemaslahatan umat & transparansi ZISWAF.'}
+          <div className="text-[11px] text-slate-500 text-center sm:text-right">
+            &copy; {new Date().getFullYear()} {cfg.footerTitle || cfg.headerTitle || 'BantuAmil'}. {cfg.footerCopyright || 'Dibangun untuk kemaslahatan umat & transparansi ZISWAF.'}
           </div>
         </div>
       </footer>

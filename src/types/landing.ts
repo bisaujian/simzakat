@@ -25,6 +25,12 @@ export interface FaqItem {
 }
 
 export interface LandingPageConfig {
+  // Brand Identitas Platform (Header & Footer)
+  headerTitle?: string;
+  headerTagline?: string;
+  headerVersionBadge?: string;
+  logoUrl?: string;
+
   // Top Announcement
   announcementText: string;
   announcementBadge: string;
@@ -104,6 +110,12 @@ export interface LandingPageConfig {
 }
 
 export const DEFAULT_LANDING_CONFIG: LandingPageConfig = {
+  // Brand Identitas Platform (Header & Footer)
+  headerTitle: 'BantuAmil',
+  headerTagline: 'Sistem Manajemen Zakat Fitrah & Maal Terpadu',
+  headerVersionBadge: 'DKM v2.5',
+  logoUrl: '',
+
   // Top Announcement
   announcementText: 'Sistem Informasi Manajemen Zakat Standar Kemenag RI, MUI & Had Kifayah BAZNAS',
   announcementBadge: 'Dakwah Digital',
