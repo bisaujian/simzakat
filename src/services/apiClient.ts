@@ -216,6 +216,77 @@ export const authService = {
 
   async login(payload: LoginPayload): Promise<{ success: boolean; session?: AuthSession; message?: string }> {
     initSeedData();
+
+    // 1. Prioritaskan autentikasi ke server backend (VPS / API)
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (data.success && data.user) {
+        // Cari atau susun data masjid dari respons server
+        let masjid: MasjidAccount | null = data.masjid || null;
+        if (!masjid && data.user.masjidId) {
+          const localMasjids = getLocalItem<MasjidAccount[]>(STORAGE_KEYS.MASJIDS, DEFAULT_MASJIDS);
+          masjid = localMasjids.find((m) => m.id === data.user.masjidId) || {
+            id: data.user.masjidId,
+            name: data.user.masjidName || 'Masjid Terdaftar',
+            slug: (data.user.masjidName || 'masjid').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+            address: '',
+            city: '',
+            province: 'Indonesia',
+            contactPhone: data.user.phone || '',
+            email: data.user.email || '',
+            leadName: data.user.name,
+            status: 'active',
+            hijriYear: '1447 H',
+            masehiYear: '2026 M',
+            createdAt: new Date().toISOString(),
+          };
+        }
+
+        const session: AuthSession = {
+          user: data.user,
+          currentMasjid: masjid,
+          isAuthenticated: true,
+        };
+
+        this.setSession(session);
+
+        // Sinkronkan ke local storage agar cache lokal selalu mutakhir
+        const localUsers = getLocalItem<any[]>(STORAGE_KEYS.USERS, DEFAULT_USERS);
+        const existingIdx = localUsers.findIndex((u) => u.id === data.user.id || u.username === data.user.username);
+        if (existingIdx !== -1) {
+          localUsers[existingIdx] = { ...localUsers[existingIdx], ...data.user, password: payload.password };
+        } else {
+          localUsers.unshift({ ...data.user, password: payload.password });
+        }
+        setLocalItem(STORAGE_KEYS.USERS, localUsers);
+
+        if (masjid) {
+          const localMasjids = getLocalItem<any[]>(STORAGE_KEYS.MASJIDS, DEFAULT_MASJIDS);
+          const mIdx = localMasjids.findIndex((m) => m.id === masjid!.id);
+          if (mIdx !== -1) {
+            localMasjids[mIdx] = { ...localMasjids[mIdx], ...masjid };
+          } else {
+            localMasjids.unshift(masjid);
+          }
+          setLocalItem(STORAGE_KEYS.MASJIDS, localMasjids);
+        }
+
+        return { success: true, session };
+      } else if (res.status === 401 || res.status === 403 || res.status === 404 || res.status === 429) {
+        return { success: false, message: data.message || 'Gagal login ke server.' };
+      }
+    } catch (_networkErr) {
+      console.warn('[Auth] Server API offline/unreachable, beralih ke cache lokal...');
+    }
+
+    // 2. Fallback offline: Verifikasi via localStorage (hanya jika server offline)
     const users = getLocalItem<(UserAccount & { password?: string })[]>(STORAGE_KEYS.USERS, DEFAULT_USERS);
     const masjids = getLocalItem<MasjidAccount[]>(STORAGE_KEYS.MASJIDS, DEFAULT_MASJIDS);
 
@@ -230,7 +301,7 @@ export const authService = {
     }
 
     if (!user) {
-      return { success: false, message: 'Username atau email tidak ditemukan.' };
+      return { success: false, message: 'Username atau email tidak ditemukan di sistem.' };
     }
 
     if (!user.isActive) {
@@ -242,7 +313,6 @@ export const authService = {
     let isPasswordValid = false;
     if (isOwner) {
       if (user.password && user.password !== 'owner') {
-        // Owner has set a custom secure password
         isPasswordValid = payload.password === user.password;
       } else {
         isPasswordValid = payload.password === (user.password || 'owner') || payload.password === 'owner123';
@@ -278,7 +348,7 @@ export const authService = {
       masjidId: user.masjidId,
       masjidName: masjid?.name || user.masjidName || 'Pusat SimZakat',
       isActive: user.isActive,
-      token: 'simzakat-demo-token-' + Date.now(),
+      token: 'simzakat-token-' + Date.now(),
     };
 
     const session: AuthSession = {
@@ -293,27 +363,35 @@ export const authService = {
 
   async registerMasjid(payload: RegisterMasjidPayload): Promise<{ success: boolean; session?: AuthSession; message?: string }> {
     initSeedData();
+
+    let serverMasjid: any = null;
+    let serverUser: any = null;
+
+    // 1. Hubungi server backend untuk pendaftaran permanen (MySQL + data/masjids.json & data/users.json)
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        return { success: false, message: data.message || 'Pendaftaran gagal di server.' };
+      }
+      serverMasjid = data.masjid;
+      serverUser = data.user;
+    } catch (_netErr) {
+      console.warn('[Auth] Server API offline/unreachable saat registrasi, melanjutkan pendaftaran lokal...');
+    }
+
     const masjids = getLocalItem<MasjidAccount[]>(STORAGE_KEYS.MASJIDS, DEFAULT_MASJIDS);
     const users = getLocalItem<(UserAccount & { password?: string })[]>(STORAGE_KEYS.USERS, DEFAULT_USERS);
 
-    // Validate unique username & email
-    const exists = users.some(
-      (u) =>
-        u.username.toLowerCase() === payload.username.trim().toLowerCase() ||
-        u.email.toLowerCase() === payload.email.trim().toLowerCase()
-    );
-    if (exists) {
-      return { success: false, message: 'Username atau email sudah terdaftar. Silakan gunakan username/email lain.' };
-    }
+    const newMasjidId = serverMasjid?.id || `masjid-${Date.now().toString(36)}`;
+    const newUserId = serverUser?.id || `user-${Date.now().toString(36)}`;
+    const slug = (serverMasjid?.slug || payload.masjidName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
 
-    const newMasjidId = `masjid-${Date.now().toString(36)}`;
-    const newUserId = `user-${Date.now().toString(36)}`;
-    const slug = payload.masjidName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-
-    const newMasjid: MasjidAccount = {
+    const newMasjid: MasjidAccount = serverMasjid || {
       id: newMasjidId,
       name: payload.masjidName.trim(),
       slug: `${slug}-${Math.floor(Math.random() * 1000)}`,
@@ -323,13 +401,12 @@ export const authService = {
       contactPhone: payload.contactPhone.trim(),
       email: payload.email.trim(),
       leadName: payload.leadName.trim(),
-      status: 'pending_verification', // New self-registered masjids await Owner review & verification
+      status: 'pending_verification',
       hijriYear: payload.hijriYear || '1447 H',
       masehiYear: payload.masehiYear || '2026 M',
       createdAt: new Date().toISOString(),
       recommendationLetterName: payload.recommendationLetterName,
       recommendationLetterData: payload.recommendationLetterData,
-      recommendationLetterUploadedAt: payload.recommendationLetterName ? new Date().toISOString() : undefined,
       totalTransactions: 0,
       totalMuzakkiSouls: 0,
       totalFitrahRiceKg: 0,
@@ -381,10 +458,9 @@ export const authService = {
       email: newUser.email,
       phone: newUser.phone,
       role: newUser.role,
-      masjidId: newUser.masjidId,
+      masjidId: newMasjidId,
       masjidName: newMasjid.name,
       isActive: true,
-      token: 'simzakat-token-' + Date.now(),
     };
 
     const session: AuthSession = {
@@ -394,7 +470,7 @@ export const authService = {
     };
 
     this.setSession(session);
-    return { success: true, session };
+    return { success: true, session, message: 'Alhamdulillah, pendaftaran masjid berhasil disimpan permanen!' };
   },
 
   updateMasjidRecommendationDoc(
@@ -706,18 +782,23 @@ export const ownerService = {
         const data = await res.json();
         if (Array.isArray(data.masjids) && data.masjids.length > 0) {
           const currentLocal = getLocalItem<MasjidAccount[]>(STORAGE_KEYS.MASJIDS, DEFAULT_MASJIDS);
-          const merged = data.masjids.map((sm: any) => {
-            const loc = currentLocal.find((l) => l.id === sm.id);
-            return {
-              ...sm,
-              totalTransactions: loc?.totalTransactions || sm.totalTransactions || 0,
-              totalMuzakkiSouls: loc?.totalMuzakkiSouls || sm.totalMuzakkiSouls || 0,
-              totalFitrahRiceKg: loc?.totalFitrahRiceKg || sm.totalFitrahRiceKg || 0,
-              totalFitrahCashRp: loc?.totalFitrahCashRp || sm.totalFitrahCashRp || 0,
-              totalMaalRp: loc?.totalMaalRp || sm.totalMaalRp || 0,
-              totalMustahiqCount: loc?.totalMustahiqCount || sm.totalMustahiqCount || 0,
-            };
-          });
+          // Pertahankan masjid lokal yang belum sempat tersinkronkan agar tidak terhapus
+          const localOnly = currentLocal.filter((loc) => !data.masjids.some((sm: any) => sm.id === loc.id));
+          const merged = [
+            ...data.masjids.map((sm: any) => {
+              const loc = currentLocal.find((l) => l.id === sm.id);
+              return {
+                ...sm,
+                totalTransactions: loc?.totalTransactions || sm.totalTransactions || 0,
+                totalMuzakkiSouls: loc?.totalMuzakkiSouls || sm.totalMuzakkiSouls || 0,
+                totalFitrahRiceKg: loc?.totalFitrahRiceKg || sm.totalFitrahRiceKg || 0,
+                totalFitrahCashRp: loc?.totalFitrahCashRp || sm.totalFitrahCashRp || 0,
+                totalMaalRp: loc?.totalMaalRp || sm.totalMaalRp || 0,
+                totalMustahiqCount: loc?.totalMustahiqCount || sm.totalMustahiqCount || 0,
+              };
+            }),
+            ...localOnly,
+          ];
           setLocalItem(STORAGE_KEYS.MASJIDS, merged);
           return merged;
         }

@@ -194,11 +194,6 @@ export default function App() {
       if (landingConfig.showDonationOnLogin) {
         setIsDonationModalOpen(true);
       }
-      fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }).catch(() => {});
     }
     return res;
   };

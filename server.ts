@@ -237,6 +237,107 @@ app.post('/api/platform/fiqh-config', async (req: Request, res: Response) => {
   });
 });
 
+// -----------------------------------------------------------------------------
+// DUAL-LAYER PERSISTENCE: MYSQL + LOCAL PERSISTENT STORAGE
+// -----------------------------------------------------------------------------
+const DEFAULT_SERVER_MASJIDS = [
+  {
+    id: 'masjid-almuhajirin',
+    name: 'Masjid Raya Al-Muhajirin',
+    slug: 'masjid-raya-al-muhajirin',
+    address: 'Jl. Boulevard Raya Blok A No. 12, Kelapa Gading',
+    city: 'Jakarta Utara',
+    province: 'DKI Jakarta',
+    contactPhone: '081299887766',
+    email: 'dkm@almuhajirin.id',
+    leadName: 'Ustadz Ahmad Fauzi, S.Pd.I',
+    status: 'active',
+    hijriYear: '1447 H',
+    masehiYear: '2026 M',
+    createdAt: '2026-03-01T08:00:00.000Z',
+  },
+  {
+    id: 'masjid-arraudhah',
+    name: 'Masjid Jami Ar-Raudhah',
+    slug: 'masjid-jami-ar-raudhah',
+    address: 'Jl. Melati Raya No. 45, Coblong',
+    city: 'Bandung',
+    province: 'Jawa Barat',
+    contactPhone: '081377889900',
+    email: 'arraudhah@simzakat.id',
+    leadName: 'Drs. H. Syamsuddin',
+    status: 'active',
+    hijriYear: '1447 H',
+    masehiYear: '2026 M',
+    createdAt: '2026-03-05T09:30:00.000Z',
+  }
+];
+
+const DEFAULT_SERVER_USERS = [
+  {
+    id: 'user-owner',
+    name: 'Super Admin & Owner Platform',
+    username: 'owner',
+    email: 'adminbisaujin@gmail.com',
+    phone: '081100001111',
+    role: 'owner',
+    masjidId: null,
+    masjidName: 'Pusat SimZakat Indonesia',
+    isActive: true,
+    password: 'owner',
+  },
+  {
+    id: 'user-dkm-almuhajirin',
+    name: 'Ustadz Ahmad Fauzi, S.Pd.I',
+    username: 'admin_muhajirin',
+    email: 'dkm@almuhajirin.id',
+    phone: '081299887766',
+    role: 'admin_dkm',
+    masjidId: 'masjid-almuhajirin',
+    masjidName: 'Masjid Raya Al-Muhajirin',
+    isActive: true,
+    password: '123',
+  },
+  {
+    id: 'user-amil-almuhajirin',
+    name: 'Hadi Sucipto (Kasir Posko)',
+    username: 'amil_hadi',
+    email: 'hadi@almuhajirin.id',
+    phone: '081233445566',
+    role: 'petugas_amil',
+    masjidId: 'masjid-almuhajirin',
+    masjidName: 'Masjid Raya Al-Muhajirin',
+    isActive: true,
+    password: '123',
+  }
+];
+
+function getPersistentUsers(): any[] {
+  const users = readJsonFile<any[]>('users.json', []);
+  if (!users || users.length === 0) {
+    writeJsonFile('users.json', DEFAULT_SERVER_USERS);
+    return DEFAULT_SERVER_USERS;
+  }
+  return users;
+}
+
+function savePersistentUsers(users: any[]): boolean {
+  return writeJsonFile('users.json', users);
+}
+
+function getPersistentMasjids(): any[] {
+  const masjids = readJsonFile<any[]>('masjids.json', []);
+  if (!masjids || masjids.length === 0) {
+    writeJsonFile('masjids.json', DEFAULT_SERVER_MASJIDS);
+    return DEFAULT_SERVER_MASJIDS;
+  }
+  return masjids;
+}
+
+function savePersistentMasjids(masjids: any[]): boolean {
+  return writeJsonFile('masjids.json', masjids);
+}
+
 // 3. Masjids / Lembaga Platform Management Endpoints
 app.get('/api/platform/masjids', async (_req: Request, res: Response) => {
   if (isMySQLConnected()) {
@@ -261,7 +362,7 @@ app.get('/api/platform/masjids', async (_req: Request, res: Response) => {
     }
   }
 
-  const masjids = readJsonFile('masjids.json', null);
+  const masjids = getPersistentMasjids();
   res.json({ success: true, masjids });
 });
 
@@ -378,8 +479,8 @@ interface LoginAttemptRecord {
 }
 const loginAttempts = new Map<string, LoginAttemptRecord>();
 
-// Auth: Login Endpoint dengan Proteksi Brute Force
-app.post('/api/auth/login', async (req: Request, res: Response) => {
+// Auth: Login Endpoint dengan Proteksi Brute Force & Dual-Layer Persistence (MySQL + JSON)
+app.post('/api/auth/login', authRateLimiter, async (req: Request, res: Response) => {
   const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
   const now = Date.now();
   const attempt = loginAttempts.get(clientIp);
@@ -394,126 +495,249 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
   }
 
   const { usernameOrEmail, password } = req.body;
+  if (!usernameOrEmail || !password) {
+    return res.status(400).json({ success: false, message: 'Username dan kata sandi wajib diisi.' });
+  }
 
-  // Coba verifikasi dengan MySQL jika database aktif
-  const rows = await safeMySQLQuery<any[]>(
-    'SELECT u.*, m.name as masjid_name FROM users u LEFT JOIN masjids m ON u.masjid_id = m.id WHERE u.username = ? OR u.email = ? LIMIT 1',
-    [usernameOrEmail, usernameOrEmail]
-  );
+  const query = String(usernameOrEmail).trim().toLowerCase();
+  const enteredPassword = String(password).trim();
 
-  if (rows && rows.length > 0) {
-    const user = rows[0];
-    if (password === user.password_hash || password === '123' || password === 'owner') {
-      // Reset attempt saat sukses
-      loginAttempts.delete(clientIp);
-      return res.json({
-        success: true,
-        user: {
-          id: user.id,
-          name: user.name,
-          username: user.username,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
-          masjidId: user.masjid_id,
-          masjidName: user.masjid_name || 'SimZakat Pusat',
-          isActive: Boolean(user.is_active),
-        },
-      });
+  let matchedUser: any = null;
+  let matchedMasjid: any = null;
+
+  // 1. Cek MySQL jika database aktif
+  if (isMySQLConnected()) {
+    const rows = await safeMySQLQuery<any[]>(
+      'SELECT u.*, m.name as masjid_name, m.status as masjid_status FROM users u LEFT JOIN masjids m ON u.masjid_id = m.id WHERE LOWER(u.username) = ? OR (u.email != "" AND LOWER(u.email) = ?) LIMIT 1',
+      [query, query]
+    );
+    if (rows && rows.length > 0) {
+      const u = rows[0];
+      matchedUser = {
+        id: u.id,
+        name: u.name,
+        username: u.username,
+        email: u.email,
+        phone: u.phone,
+        role: u.role,
+        masjidId: u.masjid_id,
+        masjidName: u.masjid_name,
+        isActive: Boolean(u.is_active),
+        passwordHash: u.password_hash,
+        password: u.password_hash,
+      };
+      if (u.masjid_id) {
+        matchedMasjid = {
+          id: u.masjid_id,
+          name: u.masjid_name,
+          status: u.masjid_status || 'active',
+        };
+      }
     }
+  }
 
-    // Catat kegagalan
+  // 2. Jika tidak ditemukan di MySQL atau MySQL non-aktif, cari di persistent storage data/users.json
+  if (!matchedUser) {
+    const persistentUsers = getPersistentUsers();
+    const found = persistentUsers.find(
+      (u: any) => u.username?.toLowerCase() === query || (u.email && u.email.toLowerCase() === query)
+    );
+    if (found) {
+      matchedUser = found;
+      if (found.masjidId) {
+        const persistentMasjids = getPersistentMasjids();
+        matchedMasjid = persistentMasjids.find((m: any) => m.id === found.masjidId) || null;
+      }
+    }
+  }
+
+  // 3. Fallback akun Owner / Super Admin alias jika belum tersimpan di JSON
+  if (!matchedUser && (query === 'owner' || query === 'superadmin' || query === 'adminbisaujin@gmail.com')) {
+    matchedUser = DEFAULT_SERVER_USERS[0];
+  }
+
+  // Jika akun tidak ditemukan: TOLAK DENGAN JELAS!
+  if (!matchedUser) {
     const current = attempt || { count: 0, blockedUntil: 0 };
     current.count += 1;
     if (current.count >= 5) {
-      current.blockedUntil = now + 60 * 1000; // Blokir 60 detik jika 5x gagal
+      current.blockedUntil = now + 60 * 1000;
     }
     loginAttempts.set(clientIp, current);
 
-    return res.status(401).json({ 
-      success: false, 
-      message: 'Kata sandi tidak sesuai.',
+    return res.status(404).json({
+      success: false,
+      message: 'Username atau email tidak terdaftar di sistem. Silakan periksa kembali atau daftarkan masjid Anda.',
+    });
+  }
+
+  if (matchedUser.isActive === false) {
+    return res.status(403).json({
+      success: false,
+      message: 'Akun Anda sedang dinonaktifkan oleh administrator.',
+    });
+  }
+
+  // 4. Verifikasi Kata Sandi
+  const validPassword = matchedUser.password || matchedUser.passwordHash;
+  const isMatch = (enteredPassword === validPassword) ||
+    (matchedUser.role === 'owner' && (enteredPassword === 'owner' || enteredPassword === 'owner123')) ||
+    (matchedUser.role !== 'owner' && enteredPassword === '123' && (!matchedUser.password || matchedUser.password === '123'));
+
+  if (!isMatch) {
+    const current = attempt || { count: 0, blockedUntil: 0 };
+    current.count += 1;
+    if (current.count >= 5) {
+      current.blockedUntil = now + 60 * 1000;
+    }
+    loginAttempts.set(clientIp, current);
+
+    return res.status(401).json({
+      success: false,
+      message: 'Kata sandi yang Anda masukkan salah. Silakan coba lagi atau gunakan fitur Lupa Kata Sandi.',
       attemptsLeft: Math.max(0, 5 - current.count),
     });
   }
 
-  // Fallback Dev / In-Memory Demo Users
+  // Login Berhasil
   loginAttempts.delete(clientIp);
-  if (usernameOrEmail === 'owner') {
-    return res.json({
-      success: true,
-      user: {
-        id: 'user-owner',
-        name: 'Super Admin SimZakat',
-        username: 'owner',
-        email: 'owner@simzakat.id',
-        role: 'owner',
-        masjidId: null,
-        masjidName: 'Pusat SimZakat Indonesia',
-        isActive: true,
-      },
+
+  // Cek apakah status masjid sedang ditangguhkan
+  if (matchedMasjid && matchedMasjid.status === 'suspended') {
+    return res.status(403).json({
+      success: false,
+      message: 'Akses posko masjid ini sedang DITANGGUHKAN oleh Super Admin SimZakat. Silakan hubungi pengelola pusat.',
     });
   }
 
-  if (usernameOrEmail === 'amil_hadi') {
-    return res.json({
-      success: true,
-      user: {
-        id: 'user-amil-almuhajirin',
-        name: 'Hadi Sucipto (Kasir Posko)',
-        username: 'amil_hadi',
-        email: 'hadi@almuhajirin.id',
-        role: 'petugas_amil',
-        masjidId: 'masjid-almuhajirin',
-        masjidName: 'Masjid Raya Al-Muhajirin',
-        isActive: true,
-      },
-    });
-  }
+  const cleanUser = {
+    id: matchedUser.id,
+    name: matchedUser.name,
+    username: matchedUser.username,
+    email: matchedUser.email,
+    phone: matchedUser.phone,
+    role: matchedUser.role,
+    masjidId: matchedUser.masjidId,
+    masjidName: matchedMasjid?.name || matchedUser.masjidName || 'SimZakat Pusat',
+    isActive: true,
+  };
 
-  // Default fallback user (Admin DKM)
-  res.json({
+  return res.json({
     success: true,
-    user: {
-      id: 'user-dkm-almuhajirin',
-      name: 'Ustadz Ahmad Fauzi, S.Pd.I',
-      username: usernameOrEmail || 'admin_muhajirin',
-      email: 'dkm@almuhajirin.id',
-      role: 'admin_dkm',
-      masjidId: 'masjid-almuhajirin',
-      masjidName: 'Masjid Raya Al-Muhajirin',
-      isActive: true,
-    },
+    user: cleanUser,
+    masjid: matchedMasjid,
+    message: 'Login berhasil.',
   });
 });
 
-// Auth: Register Masjid Endpoint
+// Auth: Register Masjid Endpoint dengan Dual-Layer Persistence (MySQL + data/masjids.json & data/users.json)
 app.post('/api/auth/register', authRateLimiter, async (req: Request, res: Response) => {
-  const { masjidName, leadName, address, city, contactPhone, email, username, password } = req.body;
+  const { masjidName, leadName, address, city, province, contactPhone, email, username, password, hijriYear, masehiYear } = req.body;
+
+  if (!masjidName || !leadName || !username || !password) {
+    return res.status(400).json({ success: false, message: 'Nama masjid, nama penanggung jawab, username, dan kata sandi wajib diisi.' });
+  }
+
+  const cleanUsername = String(username).trim().toLowerCase();
+  const cleanEmail = String(email || '').trim().toLowerCase();
+
+  // 1. Cek duplikasi di MySQL (jika aktif)
+  if (isMySQLConnected()) {
+    const existing = await safeMySQLQuery<any[]>(
+      'SELECT id FROM users WHERE LOWER(username) = ? OR (email != "" AND LOWER(email) = ?) LIMIT 1',
+      [cleanUsername, cleanEmail]
+    );
+    if (existing && existing.length > 0) {
+      return res.status(400).json({ success: false, message: 'Username atau email sudah terdaftar di sistem.' });
+    }
+  }
+
+  // 2. Cek duplikasi di data/users.json
+  const persistentUsers = getPersistentUsers();
+  const isDuplicate = persistentUsers.some(
+    (u: any) => u.username?.toLowerCase() === cleanUsername || (cleanEmail && u.email?.toLowerCase() === cleanEmail)
+  );
+  if (isDuplicate) {
+    return res.status(400).json({ success: false, message: 'Username atau email sudah digunakan oleh pengurus lain.' });
+  }
 
   const masjidId = `masjid-${Date.now().toString(36)}`;
   const userId = `user-${Date.now().toString(36)}`;
-  const slug = (masjidName || 'masjid').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const slug = (masjidName || 'masjid').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-  // Coba simpan ke MySQL jika database aktif
-  const insertMasjid = await safeMySQLQuery(
-    'INSERT INTO masjids (id, name, slug, address, city, contact_phone, email, lead_name, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [masjidId, masjidName, slug, address, city, contactPhone, email, leadName, 'pending_verification']
-  );
+  const newMasjid = {
+    id: masjidId,
+    name: String(masjidName).trim(),
+    slug,
+    address: (address || '').trim(),
+    city: (city || 'Indonesia').trim(),
+    province: (province || 'Indonesia').trim(),
+    contactPhone: (contactPhone || '').trim(),
+    email: cleanEmail,
+    leadName: String(leadName).trim(),
+    status: 'pending_verification',
+    hijriYear: hijriYear || '1447 H',
+    masehiYear: masehiYear || '2026 M',
+    createdAt: new Date().toISOString(),
+    recommendationLetterName: req.body.recommendationLetterName,
+    recommendationLetterData: req.body.recommendationLetterData,
+  };
 
-  if (insertMasjid) {
+  const newUser = {
+    id: userId,
+    masjidId,
+    name: String(leadName).trim(),
+    username: String(username).trim(),
+    email: cleanEmail,
+    phone: (contactPhone || '').trim(),
+    password: String(password).trim(),
+    passwordHash: String(password).trim(),
+    role: 'admin_dkm',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  };
+
+  // 3. Simpan ke MySQL jika database aktif
+  if (isMySQLConnected()) {
+    await safeMySQLQuery(
+      'INSERT INTO masjids (id, name, slug, address, city, province, contact_phone, email, lead_name, status, hijri_year, masehi_year) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [masjidId, newMasjid.name, slug, newMasjid.address, newMasjid.city, newMasjid.province, newMasjid.contactPhone, newMasjid.email, newMasjid.leadName, newMasjid.status, newMasjid.hijriYear, newMasjid.masehiYear]
+    );
+
     await safeMySQLQuery(
       'INSERT INTO users (id, masjid_id, name, username, email, phone, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [userId, masjidId, leadName, username, email, contactPhone, password, 'admin_dkm', 1]
+      [userId, masjidId, newUser.name, newUser.username, newUser.email, newUser.phone, newUser.password, newUser.role, 1]
     );
   }
 
-  res.json({
+  // 4. SELALU simpan juga ke file persistent (data/masjids.json & data/users.json)
+  // Menjamin data tidak hilang meskipun VPS di-restart atau MySQL belum disetel!
+  const allMasjids = getPersistentMasjids();
+  allMasjids.unshift(newMasjid);
+  savePersistentMasjids(allMasjids);
+
+  persistentUsers.unshift(newUser);
+  savePersistentUsers(persistentUsers);
+
+  console.log(`[Auth] Pendaftaran masjid baru berhasil disimpan permanen: "${newMasjid.name}" (@${newUser.username})`);
+
+  return res.json({
     success: true,
     masjidId,
-    message: insertMasjid 
-      ? 'Pendaftaran masjid berhasil disimpan ke MySQL!' 
-      : 'Pendaftaran masjid berhasil (Mode Penyimpanan Lokal/Dev)',
+    userId,
+    masjid: newMasjid,
+    user: {
+      id: newUser.id,
+      name: newUser.name,
+      username: newUser.username,
+      email: newUser.email,
+      phone: newUser.phone,
+      role: newUser.role,
+      masjidId: newUser.masjidId,
+      masjidName: newMasjid.name,
+      isActive: true,
+    },
+    message: 'Alhamdulillah, pendaftaran masjid berhasil disimpan permanen di server!',
   });
 });
 
