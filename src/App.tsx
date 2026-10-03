@@ -90,7 +90,7 @@ export default function App() {
   const [distributions, setDistributions] = useState<DistributionRecord[]>(() => masjidDataService.getDistributions(activeMasjidId));
   const [archives, setArchives] = useState<YearlyArchiveRecord[]>(() => masjidDataService.getArchives(activeMasjidId));
 
-  // Reload data when active masjid changes
+  // Reload data when active masjid changes, and pull latest authoritative data from VPS server
   useEffect(() => {
     if (currentMasjid) {
       setConfig(masjidDataService.getConfig(currentMasjid.id));
@@ -98,8 +98,40 @@ export default function App() {
       setMustahiqList(masjidDataService.getMustahiqs(currentMasjid.id));
       setDistributions(masjidDataService.getDistributions(currentMasjid.id));
       setArchives(masjidDataService.getArchives(currentMasjid.id));
+
+      // Ambil data terbaru dari server VPS agar lintas perangkat tersinkronisasi otomatis!
+      masjidDataService.fetchServerData(currentMasjid.id).then((serverData) => {
+        if (serverData.config) setConfig(serverData.config);
+        if (serverData.transactions) setTransactions(serverData.transactions);
+        if (serverData.mustahiqs) setMustahiqList(serverData.mustahiqs);
+        if (serverData.distributions) setDistributions(serverData.distributions);
+        if (serverData.archives) setArchives(serverData.archives);
+      });
     }
   }, [currentMasjid?.id]);
+
+  // Real-time synchronization lintas perangkat (HP, laptop, komputer kantor)
+  useEffect(() => {
+    if (!currentMasjid?.id || viewMode !== 'app') return;
+
+    const syncFromVPS = () => {
+      masjidDataService.fetchServerData(currentMasjid.id).then((serverData) => {
+        if (serverData.config) setConfig(serverData.config);
+        if (serverData.transactions) setTransactions(serverData.transactions);
+        if (serverData.mustahiqs) setMustahiqList(serverData.mustahiqs);
+        if (serverData.distributions) setDistributions(serverData.distributions);
+        if (serverData.archives) setArchives(serverData.archives);
+      });
+    };
+
+    window.addEventListener('focus', syncFromVPS);
+    const interval = setInterval(syncFromVPS, 25000); // Polling otomatis setiap 25 detik
+
+    return () => {
+      window.removeEventListener('focus', syncFromVPS);
+      clearInterval(interval);
+    };
+  }, [currentMasjid?.id, viewMode]);
 
   // Sync data to localStorage service whenever it updates
   useEffect(() => {

@@ -1015,7 +1015,7 @@ export const ownerService = {
 };
 
 // -----------------------------------------------------------------------------
-// MASJID DATA SERVICE (Amil Operasional Masjid Terpilih)
+// MASJID DATA SERVICE (Amil Operasional Masjid Terpilih - Sinkronisasi Server VPS)
 // -----------------------------------------------------------------------------
 export const masjidDataService = {
   getTransactions(masjidId: string): MuzakkiTransaction[] {
@@ -1025,6 +1025,14 @@ export const masjidDataService = {
 
   saveTransactions(masjidId: string, items: MuzakkiTransaction[]): void {
     setLocalItem(`${STORAGE_KEYS.TRANSACTIONS_PREFIX}${masjidId}`, items);
+    // Sinkronkan ke server VPS di latar belakang
+    fetch(`/api/posko/${encodeURIComponent(masjidId)}/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactions: items }),
+    }).catch((err) => {
+      console.warn('[PoskoSync] Gagal sinkronisasi transaksi ke VPS:', err);
+    });
   },
 
   getMustahiqs(masjidId: string): Mustahiq[] {
@@ -1034,6 +1042,14 @@ export const masjidDataService = {
 
   saveMustahiqs(masjidId: string, items: Mustahiq[]): void {
     setLocalItem(`${STORAGE_KEYS.MUSTAHIQ_PREFIX}${masjidId}`, items);
+    // Sinkronkan ke server VPS di latar belakang
+    fetch(`/api/posko/${encodeURIComponent(masjidId)}/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mustahiqs: items }),
+    }).catch((err) => {
+      console.warn('[PoskoSync] Gagal sinkronisasi mustahiq ke VPS:', err);
+    });
   },
 
   getDistributions(masjidId: string): DistributionRecord[] {
@@ -1043,6 +1059,14 @@ export const masjidDataService = {
 
   saveDistributions(masjidId: string, items: DistributionRecord[]): void {
     setLocalItem(`${STORAGE_KEYS.DISTRIBUTIONS_PREFIX}${masjidId}`, items);
+    // Sinkronkan ke server VPS di latar belakang
+    fetch(`/api/posko/${encodeURIComponent(masjidId)}/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ distributions: items }),
+    }).catch((err) => {
+      console.warn('[PoskoSync] Gagal sinkronisasi distribusi ke VPS:', err);
+    });
   },
 
   getConfig(masjidId: string): AppConfig {
@@ -1052,6 +1076,14 @@ export const masjidDataService = {
 
   saveConfig(masjidId: string, cfg: AppConfig): void {
     setLocalItem(`${STORAGE_KEYS.CONFIG_PREFIX}${masjidId}`, cfg);
+    // Sinkronkan ke server VPS di latar belakang
+    fetch(`/api/posko/${encodeURIComponent(masjidId)}/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config: cfg }),
+    }).catch((err) => {
+      console.warn('[PoskoSync] Gagal sinkronisasi config ke VPS:', err);
+    });
   },
 
   getArchives(masjidId: string): YearlyArchiveRecord[] {
@@ -1061,6 +1093,60 @@ export const masjidDataService = {
 
   saveArchives(masjidId: string, items: YearlyArchiveRecord[]): void {
     setLocalItem(`${STORAGE_KEYS.ARCHIVES_PREFIX}${masjidId}`, items);
+    // Sinkronkan ke server VPS di latar belakang
+    fetch(`/api/posko/${encodeURIComponent(masjidId)}/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ archives: items }),
+    }).catch((err) => {
+      console.warn('[PoskoSync] Gagal sinkronisasi arsip ke VPS:', err);
+    });
+  },
+
+  /**
+   * Mengambil data operasional posko masjid dari server VPS
+   * Memastikan data antar perangkat (laptop posko, HP DKM, komputer amil) sinkron secara realtime
+   */
+  async fetchServerData(masjidId: string): Promise<{
+    config?: AppConfig;
+    transactions?: MuzakkiTransaction[];
+    mustahiqs?: Mustahiq[];
+    distributions?: DistributionRecord[];
+    archives?: YearlyArchiveRecord[];
+  }> {
+    try {
+      const res = await fetch(`/api/posko/${encodeURIComponent(masjidId)}/data`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          const result: any = {};
+          if (data.config) {
+            setLocalItem(`${STORAGE_KEYS.CONFIG_PREFIX}${masjidId}`, data.config);
+            result.config = data.config;
+          }
+          if (Array.isArray(data.transactions) && (data.transactions.length > 0 || !localStorage.getItem(`${STORAGE_KEYS.TRANSACTIONS_PREFIX}${masjidId}`))) {
+            setLocalItem(`${STORAGE_KEYS.TRANSACTIONS_PREFIX}${masjidId}`, data.transactions);
+            result.transactions = data.transactions;
+          }
+          if (Array.isArray(data.mustahiqs) && (data.mustahiqs.length > 0 || !localStorage.getItem(`${STORAGE_KEYS.MUSTAHIQ_PREFIX}${masjidId}`))) {
+            setLocalItem(`${STORAGE_KEYS.MUSTAHIQ_PREFIX}${masjidId}`, data.mustahiqs);
+            result.mustahiqs = data.mustahiqs;
+          }
+          if (Array.isArray(data.distributions) && (data.distributions.length > 0 || !localStorage.getItem(`${STORAGE_KEYS.DISTRIBUTIONS_PREFIX}${masjidId}`))) {
+            setLocalItem(`${STORAGE_KEYS.DISTRIBUTIONS_PREFIX}${masjidId}`, data.distributions);
+            result.distributions = data.distributions;
+          }
+          if (Array.isArray(data.archives) && (data.archives.length > 0 || !localStorage.getItem(`${STORAGE_KEYS.ARCHIVES_PREFIX}${masjidId}`))) {
+            setLocalItem(`${STORAGE_KEYS.ARCHIVES_PREFIX}${masjidId}`, data.archives);
+            result.archives = data.archives;
+          }
+          return result;
+        }
+      }
+    } catch (err) {
+      console.warn('[PoskoSync] Gagal mengambil data posko dari server VPS:', err);
+    }
+    return {};
   },
 
   deleteArchive(masjidId: string, archiveId: string): boolean {

@@ -449,6 +449,121 @@ app.delete('/api/platform/masjids/:id', async (req: Request, res: Response) => {
   res.json({ success: true, message: 'Lembaga berhasil dihapus permanen dari server.' });
 });
 
+// -----------------------------------------------------------------------------
+// 4. POSKO OPERATIONAL DATA SYNC ENDPOINTS (Cross-Device Real-Time Storage)
+// -----------------------------------------------------------------------------
+
+interface PoskoStorageData {
+  config?: any;
+  transactions: any[];
+  mustahiqs: any[];
+  distributions: any[];
+  archives: any[];
+  lastUpdated: string;
+}
+
+function getPoskoDataFilename(masjidId: string): string {
+  const safeId = masjidId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `posko_${safeId}.json`;
+}
+
+// GET /api/posko/:masjidId/data - Mengambil data operasional posko masjid dari server VPS
+app.get('/api/posko/:masjidId/data', async (req: Request, res: Response) => {
+  const { masjidId } = req.params;
+  if (!masjidId) {
+    return res.status(400).json({ success: false, message: 'Parameter masjidId wajib diisi.' });
+  }
+
+  const filename = getPoskoDataFilename(masjidId);
+  const data = readJsonFile<PoskoStorageData | null>(filename, null);
+
+  if (data) {
+    return res.json({
+      success: true,
+      masjidId,
+      config: data.config || null,
+      transactions: data.transactions || [],
+      mustahiqs: data.mustahiqs || [],
+      distributions: data.distributions || [],
+      archives: data.archives || [],
+      lastUpdated: data.lastUpdated || null,
+    });
+  }
+
+  return res.json({
+    success: true,
+    masjidId,
+    config: null,
+    transactions: [],
+    mustahiqs: [],
+    distributions: [],
+    archives: [],
+    lastUpdated: null,
+  });
+});
+
+// POST /api/posko/:masjidId/sync - Menyimpan sinkronisasi data operasional posko masjid ke server VPS
+app.post('/api/posko/:masjidId/sync', async (req: Request, res: Response) => {
+  const { masjidId } = req.params;
+  if (!masjidId) {
+    return res.status(400).json({ success: false, message: 'Parameter masjidId wajib diisi.' });
+  }
+
+  const filename = getPoskoDataFilename(masjidId);
+  const existing = readJsonFile<PoskoStorageData>(filename, {
+    config: null,
+    transactions: [],
+    mustahiqs: [],
+    distributions: [],
+    archives: [],
+    lastUpdated: new Date().toISOString(),
+  });
+
+  const body = req.body || {};
+
+  if (body.config !== undefined && body.config !== null) {
+    existing.config = body.config;
+  }
+  if (Array.isArray(body.transactions)) {
+    existing.transactions = body.transactions;
+  }
+  if (Array.isArray(body.mustahiqs)) {
+    existing.mustahiqs = body.mustahiqs;
+  }
+  if (Array.isArray(body.distributions)) {
+    existing.distributions = body.distributions;
+  }
+  if (Array.isArray(body.archives)) {
+    existing.archives = body.archives;
+  }
+
+  existing.lastUpdated = new Date().toISOString();
+
+  // Simpan permanen ke berkas fisik VPS di data/
+  const saved = writeJsonFile(filename, existing);
+
+  // Jika MySQL aktif, perbarui total kalkulasi di tabel masjids
+  if (isMySQLConnected()) {
+    const totalTransactions = existing.transactions.length;
+    const totalSouls = existing.transactions.reduce((acc: number, t: any) => acc + (t.fitrahDetail?.payerCount || t.totalSouls || 0), 0);
+    const totalFitrahRiceKg = existing.transactions.reduce((acc: number, t: any) => acc + (t.fitrahDetail?.riceWeightKg || 0), 0);
+    const totalFitrahCashRp = existing.transactions.reduce((acc: number, t: any) => acc + (t.fitrahDetail?.nominalRp || 0), 0);
+    const totalMaalRp = existing.transactions.reduce((acc: number, t: any) => acc + (t.maalDetail?.nominalRp || 0), 0);
+
+    safeMySQLQuery(
+      'UPDATE masjids SET total_transactions = ?, total_muzakki_souls = ?, total_fitrah_rice_kg = ?, total_fitrah_cash_rp = ?, total_maal_rp = ?, total_mustahiq_count = ? WHERE id = ?',
+      [totalTransactions, totalSouls, totalFitrahRiceKg, totalFitrahCashRp, totalMaalRp, existing.mustahiqs.length, masjidId]
+    ).catch(() => {});
+  }
+
+  return res.json({
+    success: saved,
+    masjidId,
+    lastUpdated: existing.lastUpdated,
+    message: 'Data operasional posko berhasil disinkronkan ke server VPS!',
+  });
+});
+
 // Health check & Database Status
 app.get('/api/health', async (_req: Request, res: Response) => {
   await getActiveMySQLPool();
